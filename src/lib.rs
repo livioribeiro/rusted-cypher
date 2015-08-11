@@ -5,47 +5,14 @@ extern crate semver;
 
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fmt;
-use hyper::Url;
-use hyper::Client;
+use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde_json::Value;
 use semver::Version;
 
-#[derive(Debug)]
-pub struct Neo4jError {
-    message: String,
-    code: String,
-}
+mod error;
 
-#[derive(Debug)]
-pub struct GraphError {
-    message: String,
-    neo4j_errors: Option<Vec<Neo4jError>>,
-    error: Option<Box<Error>>,
-}
-
-impl GraphError {
-    pub fn neo4j_error(errors: Vec<Neo4jError>) -> Self {
-        GraphError {
-            message: "".to_owned(),
-            neo4j_errors: Some(errors),
-            error: None,
-        }
-    }
-}
-
-impl fmt::Display for GraphError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl Error for GraphError {
-    fn description(&self) -> &str {
-        &self.message
-    }
-}
+use error::{GraphError, Neo4jError};
 
 #[derive(Clone)]
 pub struct Credentials {
@@ -56,7 +23,6 @@ pub struct Credentials {
 #[allow(dead_code)]
 pub struct GraphClient {
     endpoint: Url,
-    credentials: Option<Credentials>,
     headers: Headers,
     server_params: BTreeMap<String, Value>,
     neo4j_version: Version,
@@ -67,21 +33,14 @@ impl GraphClient {
         let url = try!(Url::parse(endpoint));
         let mut headers = Headers::new();
 
-        let credentials = url.username()
-            .and_then(|username| url.password()
-                .and_then(|password| {
-                    headers.set(Authorization(
-                        Basic {
-                            username: username.to_owned(),
-                            password: Some(password.to_owned()),
-                        }
-                    ));
-                    Some(Credentials {
-                        username: username.to_owned(),
-                        password: password.to_owned()
-                    })
-                })
-            );
+        url.username().map(|username| url.password().map(|password| {
+            headers.set(Authorization(
+                Basic {
+                    username: username.to_owned(),
+                    password: Some(password.to_owned()),
+                }
+            ));
+        }));
 
         headers.set(ContentType::json());
 
@@ -116,7 +75,6 @@ impl GraphClient {
 
         Ok(GraphClient {
             endpoint: url,
-            credentials: credentials,
             headers: headers,
             server_params: result.as_object().unwrap().to_owned(),
             neo4j_version: Version::parse(neo4j_version).unwrap(),
