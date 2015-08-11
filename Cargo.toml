@@ -1,0 +1,10 @@
+[package]
+name = "rusted_cypher"
+version = "0.1.0"
+authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
+
+[dependencies]
+hyper = "0.6"
+serde = "0.5"
+serde_json = "0.5"
+semver = "0.1"
