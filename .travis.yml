@@ -1,0 +1,3 @@
+language: rust
+services:
+    - neo4j
