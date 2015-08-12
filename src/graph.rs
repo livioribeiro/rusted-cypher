@@ -81,9 +81,13 @@ impl GraphClient {
         &self.neo4j_version
     }
 
-    pub fn cypher_query(&self, query: &str) -> Result<BTreeMap<String, Value>, Box<Error>> {
+    pub fn cypher_query(&self, statement: &str) -> Result<BTreeMap<String, Value>, Box<Error>> {
+        self.cypher_query_params(statement, BTreeMap::new())
+    }
+
+    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Value>) -> Result<BTreeMap<String, Value>, Box<Error>> {
         let mut statements = Statements::new();
-        statements.add_stmt(query, BTreeMap::new());
+        statements.add_stmt(statement, params);
         let json = statements.to_json();
         let json = try!(serde_json::to_string(&json));
 
@@ -101,12 +105,15 @@ impl GraphClient {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+    use serde_json::Value;
     use super::*;
+
+    const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 
     #[test]
     fn connect() {
-        let url = "http://neo4j:neo4j@localhost:7474/db/data";
-        let graph = GraphClient::connect(url);
+        let graph = GraphClient::connect(URL);
         assert!(graph.is_ok());
         let graph = graph.unwrap();
         assert!(graph.neo4j_version().major >= 2);
@@ -114,8 +121,7 @@ mod tests {
 
     #[test]
     fn cypher_query() {
-        let url = "http://neo4j:neo4j@localhost:7474/db/data";
-        let graph = GraphClient::connect(url).unwrap();
+        let graph = GraphClient::connect(URL).unwrap();
 
         let result = graph.cypher_query("match n return n");
         assert!(result.is_ok());
@@ -123,5 +129,28 @@ mod tests {
 
         assert!(result.contains_key("results"));
         assert!(result.contains_key("errors"));
+
+        let errors = result["errors"].as_array().unwrap();
+        assert!(errors.len() == 0);
+    }
+
+    #[test]
+    fn cypher_query_params() {
+        let graph = GraphClient::connect(URL).unwrap();
+
+        let mut params = BTreeMap::new();
+        params.insert("name".to_owned(), Value::String("Neo".to_owned()));
+
+        let result = graph.cypher_query_params(
+            "match (n {name: {name}}) return n", params);
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
+        assert!(result.contains_key("results"));
+        assert!(result.contains_key("errors"));
+
+        let errors = result["errors"].as_array().unwrap();
+        assert!(errors.len() == 0, format!("errors: {:?}", errors));
     }
 }

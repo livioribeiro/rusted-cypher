@@ -27,9 +27,9 @@ impl Statements {
         }
     }
 
-    pub fn add_stmt(&mut self, query: &str, params: BTreeMap<String, Value>) {
+    pub fn add_stmt(&mut self, statement: &str, params: BTreeMap<String, Value>) {
         self.statements.push(Statement {
-            statement: query.to_owned(),
+            statement: statement.to_owned(),
             parameters: params,
         });
     }
