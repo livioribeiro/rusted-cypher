@@ -9,15 +9,12 @@ use cypher::Statements;
 use error::{GraphError, Neo4jError};
 
 struct ServiceRoot {
-    cypher: Url,
     transaction: Url,
 }
 
-#[allow(dead_code)]
 pub struct GraphClient {
     client: Client,
     headers: Headers,
-    server_params: BTreeMap<String, Value>,
     service_root: ServiceRoot,
     neo4j_version: Version,
 }
@@ -67,17 +64,14 @@ impl GraphClient {
             )
         };
 
-        let cypher_endpoint = server_params.find("cypher").unwrap().as_string().unwrap();
         let transaction_endpoint = server_params.find("transaction").unwrap().as_string().unwrap();
         let service_root = ServiceRoot {
-            cypher: Url::parse(cypher_endpoint).unwrap(),
             transaction: Url::parse(transaction_endpoint).unwrap(),
         };
 
         Ok(GraphClient {
             client: Client::new(),
             headers: headers,
-            server_params: server_params.as_object().unwrap().to_owned(),
             service_root: service_root,
             neo4j_version: Version::parse(neo4j_version).unwrap(),
         })
