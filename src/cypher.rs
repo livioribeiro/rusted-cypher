@@ -1,16 +1,16 @@
 use std::collections::BTreeMap;
-use serde_json::Value;
+use rustc_serialize::json::Json;
 
 struct Statement {
     statement: String,
-    parameters: BTreeMap<String, Value>,
+    parameters: BTreeMap<String, Json>,
 }
 
 impl Statement {
-    pub fn to_json(self) -> BTreeMap<String, Value> {
+    pub fn to_json(self) -> BTreeMap<String, Json> {
         let mut json = BTreeMap::new();
-        json.insert("statement".to_owned(), Value::String(self.statement));
-        json.insert("parameters".to_owned(), Value::Object(self.parameters));
+        json.insert("statement".to_owned(), Json::String(self.statement));
+        json.insert("parameters".to_owned(), Json::Object(self.parameters));
 
         json
     }
@@ -27,21 +27,21 @@ impl Statements {
         }
     }
 
-    pub fn add_stmt(&mut self, statement: &str, params: BTreeMap<String, Value>) {
+    pub fn add_stmt(&mut self, statement: &str, params: BTreeMap<String, Json>) {
         self.statements.push(Statement {
             statement: statement.to_owned(),
             parameters: params,
         });
     }
 
-    pub fn to_json(self) -> BTreeMap<String, Value> {
+    pub fn to_json(self) -> BTreeMap<String, Json> {
         let mut json = BTreeMap::new();
         let mut statements = vec![];
         for s in self.statements {
-            statements.push(Value::Object(s.to_json()));
+            statements.push(Json::Object(s.to_json()));
         }
 
-        json.insert("statements".to_owned(), Value::Array(statements));
+        json.insert("statements".to_owned(), Json::Array(statements));
 
         json
     }

@@ -1,15 +1,29 @@
 use std::collections::BTreeMap;
 use std::error::Error;
+use std::io::{self, Read};
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
-use serde_json::{self, Value};
+use rustc_serialize::json::{self, Json};
 use semver::Version;
 
 use cypher::Statements;
 use error::{GraphError, Neo4jError};
 
+#[derive(RustcDecodable)]
+#[allow(dead_code)]
 struct ServiceRoot {
-    transaction: Url,
+    node: String,
+    node_index: String,
+    relationship_index: String,
+    extensions_info: String,
+    relationship_types: String,
+    batch: String,
+    cypher: String,
+    indexes: String,
+    constraints: String,
+    transaction: String,
+    node_labels: String,
+    neo4j_version: String,
 }
 
 pub struct GraphClient {
@@ -37,43 +51,38 @@ impl GraphClient {
 
         let client = Client::new();
         let mut res = try!(client.get(url.clone()).headers(headers.clone()).send());
+        let mut buf = String::new();
+        try!(res.read_to_string(&mut buf));
 
-        let server_params: Value = try!(serde_json::de::from_reader(&mut res));
-        server_params.find("errors").map(|e| {
-            let mut errors = Vec::new();
-            for error in e.as_array().unwrap() {
-                errors.push({
-                    Neo4jError {
-                        message: error.find("message").unwrap().as_string().unwrap().to_owned(),
-                        code: error.find("code").unwrap().as_string().unwrap().to_owned(),
-                    }
-                });
+        let service_root: ServiceRoot = match json::decode(&buf) {
+            Ok(value) => value,
+            Err(_) => {
+                let error_response = try!(Json::from_str(&buf));
+                match error_response.find("errors") {
+                    Some(e) => {
+                        let mut errors = Vec::new();
+                        for error in e.as_array().unwrap() {
+                            errors.push({
+                                Neo4jError {
+                                    message: error.find("message").unwrap().as_string().unwrap().to_owned(),
+                                    code: error.find("code").unwrap().as_string().unwrap().to_owned(),
+                                }
+                            });
+                        }
+                        return Err(Box::new(GraphError::neo4j_error(errors)))
+                    },
+                    None => return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Somethind wrong happened")))
+                }
             }
-
-            return GraphError::neo4j_error(errors)
-        });
-
-        let neo4j_version = match server_params.find("neo4j_version") {
-            Some(v) => v.as_string().unwrap(),
-            None => return Err(
-                Box::new(GraphError {
-                    message: "message".to_owned(),
-                    neo4j_errors: None,
-                    error: None,
-                })
-            )
         };
 
-        let transaction_endpoint = server_params.find("transaction").unwrap().as_string().unwrap();
-        let service_root = ServiceRoot {
-            transaction: Url::parse(transaction_endpoint).unwrap(),
-        };
+        let neo4j_version = Version::parse(&service_root.neo4j_version).unwrap();
 
         Ok(GraphClient {
             client: Client::new(),
             headers: headers,
             service_root: service_root,
-            neo4j_version: Version::parse(neo4j_version).unwrap(),
+            neo4j_version: neo4j_version,
         })
     }
 
@@ -81,15 +90,15 @@ impl GraphClient {
         &self.neo4j_version
     }
 
-    pub fn cypher_query(&self, statement: &str) -> Result<BTreeMap<String, Value>, Box<Error>> {
+    pub fn cypher_query(&self, statement: &str) -> Result<BTreeMap<String, Json>, Box<Error>> {
         self.cypher_query_params(statement, BTreeMap::new())
     }
 
-    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Value>) -> Result<BTreeMap<String, Value>, Box<Error>> {
+    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Json>) -> Result<BTreeMap<String, Json>, Box<Error>> {
         let mut statements = Statements::new();
         statements.add_stmt(statement, params);
         let json = statements.to_json();
-        let json = try!(serde_json::to_string(&json));
+        let json = try!(json::encode(&json));
 
         let cypher_commit = format!("{}/{}", self.service_root.transaction, "commit");
         let req = self.client.post(&cypher_commit)
@@ -98,7 +107,7 @@ impl GraphClient {
 
         let mut res = try!(req.send());
 
-        let result: Value = try!(serde_json::de::from_reader(&mut res));
+        let result: Json = try!(Json::from_reader(&mut res));
         Ok(result.as_object().unwrap().to_owned())
     }
 }
@@ -106,7 +115,7 @@ impl GraphClient {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use serde_json::Value;
+    use rustc_serialize::json::Json;
     use super::*;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
@@ -139,7 +148,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut params = BTreeMap::new();
-        params.insert("name".to_owned(), Value::String("Neo".to_owned()));
+        params.insert("name".to_owned(), Json::String("Neo".to_owned()));
 
         let result = graph.cypher_query_params(
             "match (n {name: {name}}) return n", params);
