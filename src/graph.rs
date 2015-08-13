@@ -6,24 +6,24 @@ use hyper::header::{Authorization, Basic, ContentType, Headers};
 use rustc_serialize::json::{self, Json};
 use semver::Version;
 
-use cypher::Statements;
+use cypher::Cypher;
 use error::{GraphError, Neo4jError};
 
 #[derive(RustcDecodable)]
 #[allow(dead_code)]
-struct ServiceRoot {
-    node: String,
-    node_index: String,
-    relationship_index: String,
-    extensions_info: String,
-    relationship_types: String,
-    batch: String,
-    cypher: String,
-    indexes: String,
-    constraints: String,
-    transaction: String,
-    node_labels: String,
-    neo4j_version: String,
+pub struct ServiceRoot {
+    pub node: String,
+    pub node_index: String,
+    pub relationship_index: String,
+    pub extensions_info: String,
+    pub relationship_types: String,
+    pub batch: String,
+    pub cypher: String,
+    pub indexes: String,
+    pub constraints: String,
+    pub transaction: String,
+    pub node_labels: String,
+    pub neo4j_version: String,
 }
 
 pub struct GraphClient {
@@ -31,6 +31,7 @@ pub struct GraphClient {
     headers: Headers,
     service_root: ServiceRoot,
     neo4j_version: Version,
+    cypher: Cypher,
 }
 
 impl GraphClient {
@@ -78,13 +79,15 @@ impl GraphClient {
             }
         };
 
-        let neo4j_version = Version::parse(&service_root.neo4j_version).unwrap();
+        let neo4j_version = try!(Version::parse(&service_root.neo4j_version));
+        let cypher_endpoint = try!(Url::parse(&service_root.transaction));
 
         Ok(GraphClient {
             client: Client::new(),
             headers: headers,
             service_root: service_root,
             neo4j_version: neo4j_version,
+            cypher: Cypher::new(cypher_endpoint)
         })
     }
 
@@ -92,25 +95,27 @@ impl GraphClient {
         &self.neo4j_version
     }
 
+    pub fn get_client(&self) -> &Client {
+        &self.client
+    }
+
+    pub fn get_headers(&self) -> Headers {
+        self.headers.clone()
+    }
+
+    pub fn get_service_root(&self) -> &ServiceRoot {
+        &self.service_root
+    }
+
     pub fn cypher_query(&self, statement: &str) -> Result<BTreeMap<String, Json>, Box<Error>> {
         self.cypher_query_params(statement, BTreeMap::new())
     }
 
     pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Json>) -> Result<BTreeMap<String, Json>, Box<Error>> {
-        let mut statements = Statements::new();
-        statements.add_stmt(statement, params);
-        let json = statements.to_json();
-        let json = try!(json::encode(&json));
+        let mut query = self.cypher.query(statement);
+        query.with_params(params);
 
-        let cypher_commit = format!("{}/{}", self.service_root.transaction, "commit");
-        let req = self.client.post(&cypher_commit)
-            .headers(self.headers.clone())
-            .body(&json);
-
-        let mut res = try!(req.send());
-
-        let result: Json = try!(Json::from_reader(&mut res));
-        Ok(result.as_object().unwrap().to_owned())
+        query.send(&self.client, &self.headers)
     }
 }
 
