@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::io::{self, Read};
+use std::io::Read;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use rustc_serialize::json::{self, Json};
@@ -71,7 +71,9 @@ impl GraphClient {
                         }
                         return Err(Box::new(GraphError::neo4j_error(errors)))
                     },
-                    None => return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Somethind wrong happened")))
+                    None => return Err(Box::new(
+                        GraphError { message: "Something wrong happened".to_owned(), neo4j_errors: None, error: None}
+                    ))
                 }
             }
         };
