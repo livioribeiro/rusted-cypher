@@ -4,6 +4,8 @@ extern crate rustc_serialize;
 // extern crate serde_json;
 extern crate semver;
 
-mod cypher;
+pub mod cypher;
 pub mod graph;
 pub mod error;
+
+pub use graph::GraphClient;

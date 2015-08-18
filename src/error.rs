@@ -17,7 +17,7 @@ pub struct GraphError {
 impl GraphError {
     pub fn neo4j_error(errors: Vec<Neo4jError>) -> Self {
         GraphError {
-            message: "".to_owned(),
+            message: "Neo4j Error".to_owned(),
             neo4j_errors: Some(errors),
             error: None,
         }

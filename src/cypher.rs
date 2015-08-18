@@ -4,6 +4,8 @@ use rustc_serialize::json::{self, Json};
 use hyper::{Client, Url};
 use hyper::header::Headers;
 
+use super::error::{GraphError, Neo4jError};
+
 struct Statement {
     statement: String,
     parameters: BTreeMap<String, Json>,
@@ -50,6 +52,12 @@ impl Statements {
     }
 }
 
+#[derive(Debug)]
+pub struct CypherResult {
+    pub columns: Vec<String>,
+    pub data: Vec<Json>,
+}
+
 pub struct CypherQuery<'a> {
     statement: String,
     params: BTreeMap<String, Json>,
@@ -66,7 +74,7 @@ impl<'a> CypherQuery<'a> {
         self.params = params;
     }
 
-    pub fn send(self, client: &Client, headers: &Headers) -> Result<BTreeMap<String, Json>, Box<Error>> {
+    pub fn send(self, client: &Client, headers: &Headers) -> Result<Vec<CypherResult>, Box<Error>> {
         let mut statements = Statements::new();
         statements.add_stmt(&self.statement, self.params);
         let json = statements.to_json();
@@ -80,7 +88,33 @@ impl<'a> CypherQuery<'a> {
         let mut res = try!(req.send());
 
         let result: Json = try!(Json::from_reader(&mut res));
-        Ok(result.as_object().unwrap().to_owned())
+        let errors = result.find("errors").unwrap().as_array().unwrap();
+
+        if errors.len() > 0 {
+            let mut error_list = Vec::new();
+            for error in errors {
+                let message = error.find("message").unwrap().as_string().unwrap();
+                let code = error.find("code").unwrap().as_string().unwrap();
+
+                error_list.push(Neo4jError { message: message.to_string(), code: code.to_string() });
+            }
+
+            return Err(Box::new(GraphError::neo4j_error(error_list)));
+        }
+
+        let mut cypher_result = Vec::new();
+        for result in result.find("results").unwrap().as_array().unwrap() {
+            let mut columns = Vec::new();
+            for column in result.find("columns").unwrap().as_array().unwrap() {
+                columns.push(column.as_string().unwrap().to_owned());
+            }
+
+            let data = result.find("data").unwrap().as_array().unwrap();
+
+            cypher_result.push(CypherResult { columns: columns, data: data.to_owned() });
+        }
+
+        Ok(cypher_result)
     }
 }
 

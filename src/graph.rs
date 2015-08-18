@@ -6,7 +6,7 @@ use hyper::header::{Authorization, Basic, ContentType, Headers};
 use rustc_serialize::json::{self, Json};
 use semver::Version;
 
-use cypher::Cypher;
+use cypher::{Cypher, CypherResult};
 use error::{GraphError, Neo4jError};
 
 #[derive(RustcDecodable)]
@@ -107,11 +107,11 @@ impl GraphClient {
         &self.service_root
     }
 
-    pub fn cypher_query(&self, statement: &str) -> Result<BTreeMap<String, Json>, Box<Error>> {
+    pub fn cypher_query(&self, statement: &str) -> Result<Vec<CypherResult>, Box<Error>> {
         self.cypher_query_params(statement, BTreeMap::new())
     }
 
-    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Json>) -> Result<BTreeMap<String, Json>, Box<Error>> {
+    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Json>) -> Result<Vec<CypherResult>, Box<Error>> {
         let mut query = self.cypher.query(statement);
         query.with_params(params);
 
@@ -143,11 +143,8 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert!(result.contains_key("results"));
-        assert!(result.contains_key("errors"));
-
-        let errors = result["errors"].as_array().unwrap();
-        assert!(errors.len() == 0);
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
     }
 
     #[test]
@@ -163,10 +160,7 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert!(result.contains_key("results"));
-        assert!(result.contains_key("errors"));
-
-        let errors = result["errors"].as_array().unwrap();
-        assert!(errors.len() == 0, format!("errors: {:?}", errors));
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
     }
 }
