@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::error::Error;
+use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::Headers;
 use serde_json::{self, Value};
@@ -48,14 +49,17 @@ impl<'a> CypherQuery<'a> {
         self.statements = statements;
     }
 
-    pub fn send(self, client: &Client, headers: &Headers) -> Result<Vec<CypherResult>, Box<Error>> {
+    pub fn send(self) -> Result<Vec<CypherResult>, Box<Error>> {
+        let client = self.cypher.client.clone();
+        let headers = self.cypher.headers.clone();
+
         let mut json = BTreeMap::new();
         json.insert("statements", self.statements);
         let json = try!(serde_json::to_string(&json));
 
         let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
         let req = client.post(&cypher_commit)
-            .headers(headers.clone())
+            .headers((*headers).to_owned())
             .body(&json);
 
         let mut res = try!(req.send());
@@ -93,12 +97,16 @@ impl<'a> CypherQuery<'a> {
 
 pub struct Cypher {
     endpoint: Url,
+    client: Rc<Client>,
+    headers: Rc<Headers>,
 }
 
 impl Cypher {
-    pub fn new(endpoint: Url) -> Self {
+    pub fn new(endpoint: Url, client: Rc<Client>, headers: Rc<Headers>) -> Self {
         Cypher {
             endpoint: endpoint,
+            client: client,
+            headers: headers,
         }
     }
 

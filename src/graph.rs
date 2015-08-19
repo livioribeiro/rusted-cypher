@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::Read;
+use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde_json::{self, Value};
@@ -28,8 +29,8 @@ pub struct ServiceRoot {
 }
 
 pub struct GraphClient {
-    client: Client,
-    headers: Headers,
+    client: Rc<Client>,
+    headers: Rc<Headers>,
     service_root: ServiceRoot,
     neo4j_version: Version,
     cypher: Cypher,
@@ -83,12 +84,17 @@ impl GraphClient {
         let neo4j_version = try!(Version::parse(&service_root.neo4j_version));
         let cypher_endpoint = try!(Url::parse(&service_root.transaction));
 
+        let client = Rc::new(client);
+        let headers = Rc::new(headers);
+
+        let cypher = Cypher::new(cypher_endpoint, client.clone(), headers.clone());
+
         Ok(GraphClient {
-            client: Client::new(),
+            client: client,
             headers: headers,
             service_root: service_root,
             neo4j_version: neo4j_version,
-            cypher: Cypher::new(cypher_endpoint)
+            cypher: cypher,
         })
     }
 
@@ -100,8 +106,8 @@ impl GraphClient {
         &self.client
     }
 
-    pub fn get_headers(&self) -> Headers {
-        self.headers.clone()
+    pub fn get_headers(&self) -> &Headers {
+        &self.headers
     }
 
     pub fn get_service_root(&self) -> &ServiceRoot {
@@ -116,7 +122,7 @@ impl GraphClient {
         let mut query = self.cypher.query();
         query.add_statement(Statement::new(statement, params));
 
-        query.send(&self.client, &self.headers)
+        query.send()
     }
 }
 
@@ -142,8 +148,8 @@ mod tests {
 
         let result = graph.cypher_query("match n return n");
         assert!(result.is_ok());
-        let result = result.unwrap();
 
+        let result = result.unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
@@ -159,9 +165,35 @@ mod tests {
             "match (n {name: {name}}) return n", params);
 
         assert!(result.is_ok());
-        let result = result.unwrap();
 
+        let result = result.unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn query() {
+        let graph = GraphClient::connect(URL).unwrap();
+
+        let mut query = graph.cypher.query();
+        query.add_simple_statement("match n return n");
+
+        let result = query.send();
+        assert!(result.is_ok());
+
+        let result = result.unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn create_delete() {
+        let graph = GraphClient::connect(URL).unwrap();
+
+        let result = graph.cypher_query("create (n {name: 'Rust', lastname: 'Language'})");
+        assert!(result.is_ok());
+
+        let result = graph.cypher_query("match n delete n");
+        assert!(result.is_ok());
     }
 }
