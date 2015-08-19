@@ -1,21 +1,21 @@
 use std::collections::BTreeMap;
 use std::error::Error;
-use rustc_serialize::json::{self, Json};
 use hyper::{Client, Url};
 use hyper::header::Headers;
+use serde_json::{self, Value};
 
 use super::error::{GraphError, Neo4jError};
 
 struct Statement {
     statement: String,
-    parameters: BTreeMap<String, Json>,
+    parameters: BTreeMap<String, Value>,
 }
 
 impl Statement {
-    pub fn to_json(self) -> BTreeMap<String, Json> {
+    pub fn to_json(self) -> BTreeMap<String, Value> {
         let mut json = BTreeMap::new();
-        json.insert("statement".to_owned(), Json::String(self.statement));
-        json.insert("parameters".to_owned(), Json::Object(self.parameters));
+        json.insert("statement".to_owned(), Value::String(self.statement));
+        json.insert("parameters".to_owned(), Value::Object(self.parameters));
 
         json
     }
@@ -32,21 +32,21 @@ impl Statements {
         }
     }
 
-    pub fn add_stmt(&mut self, statement: &str, params: BTreeMap<String, Json>) {
+    pub fn add_stmt(&mut self, statement: &str, params: BTreeMap<String, Value>) {
         self.statements.push(Statement {
             statement: statement.to_owned(),
             parameters: params,
         });
     }
 
-    pub fn to_json(self) -> BTreeMap<String, Json> {
+    pub fn to_json(self) -> BTreeMap<String, Value> {
         let mut json = BTreeMap::new();
         let mut statements = vec![];
         for s in self.statements {
-            statements.push(Json::Object(s.to_json()));
+            statements.push(Value::Object(s.to_json()));
         }
 
-        json.insert("statements".to_owned(), Json::Array(statements));
+        json.insert("statements".to_owned(), Value::Array(statements));
 
         json
     }
@@ -55,22 +55,22 @@ impl Statements {
 #[derive(Debug)]
 pub struct CypherResult {
     pub columns: Vec<String>,
-    pub data: Vec<Json>,
+    pub data: Vec<Value>,
 }
 
 pub struct CypherQuery<'a> {
     statement: String,
-    params: BTreeMap<String, Json>,
+    params: BTreeMap<String, Value>,
     cypher: &'a Cypher,
 }
 
 impl<'a> CypherQuery<'a> {
-    pub fn with_param(&mut self, name: &str, param: Json) -> &mut Self {
+    pub fn with_param(&mut self, name: &str, param: Value) -> &mut Self {
         self.params.insert(name.to_owned(), param);
         self
     }
 
-    pub fn with_params(&mut self, params: BTreeMap<String, Json>) {
+    pub fn with_params(&mut self, params: BTreeMap<String, Value>) {
         self.params = params;
     }
 
@@ -78,7 +78,7 @@ impl<'a> CypherQuery<'a> {
         let mut statements = Statements::new();
         statements.add_stmt(&self.statement, self.params);
         let json = statements.to_json();
-        let json = try!(json::encode(&json));
+        let json = try!(serde_json::to_string(&json));
 
         let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
         let req = client.post(&cypher_commit)
@@ -87,7 +87,7 @@ impl<'a> CypherQuery<'a> {
 
         let mut res = try!(req.send());
 
-        let result: Json = try!(Json::from_reader(&mut res));
+        let result: Value = try!(serde_json::de::from_reader(&mut res));
         let errors = result.find("errors").unwrap().as_array().unwrap();
 
         if errors.len() > 0 {

@@ -3,15 +3,16 @@ use std::error::Error;
 use std::io::Read;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
-use rustc_serialize::json::{self, Json};
+use serde_json::{self, Value};
 use semver::Version;
 
 use cypher::{Cypher, CypherResult};
 use error::{GraphError, Neo4jError};
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct ServiceRoot {
+    pub extensions: BTreeMap<String, Value>,
     pub node: String,
     pub node_index: String,
     pub relationship_index: String,
@@ -55,10 +56,10 @@ impl GraphClient {
         let mut buf = String::new();
         try!(res.read_to_string(&mut buf));
 
-        let service_root: ServiceRoot = match json::decode(&buf) {
+        let service_root: ServiceRoot = match serde_json::de::from_str(&buf) {
             Ok(value) => value,
             Err(_) => {
-                let error_response = try!(Json::from_str(&buf));
+                let error_response: Value = try!(serde_json::de::from_str(&buf));
                 match error_response.find("errors") {
                     Some(e) => {
                         let mut errors = Vec::new();
@@ -111,7 +112,7 @@ impl GraphClient {
         self.cypher_query_params(statement, BTreeMap::new())
     }
 
-    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Json>) -> Result<Vec<CypherResult>, Box<Error>> {
+    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Value>) -> Result<Vec<CypherResult>, Box<Error>> {
         let mut query = self.cypher.query(statement);
         query.with_params(params);
 
@@ -122,7 +123,7 @@ impl GraphClient {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use rustc_serialize::json::Json;
+    use serde_json::Value;
     use super::*;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
@@ -152,7 +153,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut params = BTreeMap::new();
-        params.insert("name".to_owned(), Json::String("Neo".to_owned()));
+        params.insert("name".to_owned(), Value::String("Neo".to_owned()));
 
         let result = graph.cypher_query_params(
             "match (n {name: {name}}) return n", params);

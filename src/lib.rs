@@ -1,7 +1,9 @@
+#![feature(custom_derive, plugin)]
+#![plugin(serde_macros)]
+
 extern crate hyper;
-extern crate rustc_serialize;
-// extern crate serde;
-// extern crate serde_json;
+extern crate serde;
+extern crate serde_json;
 extern crate semver;
 
 pub mod cypher;

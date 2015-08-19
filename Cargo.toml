@@ -5,5 +5,7 @@ authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 
 [dependencies]
 hyper = "0.6"
-rustc-serialize = "0.3"
+serde = "0.5"
+serde_json = "0.5"
+serde_macros = "0.5"
 semver = "0.1"
