@@ -6,7 +6,7 @@ use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde_json::{self, Value};
 use semver::Version;
 
-use cypher::{Cypher, CypherResult};
+use cypher::{Cypher, CypherResult, Statement};
 use error::{GraphError, Neo4jError};
 
 #[derive(Deserialize)]
@@ -113,8 +113,8 @@ impl GraphClient {
     }
 
     pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Value>) -> Result<Vec<CypherResult>, Box<Error>> {
-        let mut query = self.cypher.query(statement);
-        query.with_params(params);
+        let mut query = self.cypher.query();
+        query.add_statement(Statement::new(statement, params));
 
         query.send(&self.client, &self.headers)
     }
