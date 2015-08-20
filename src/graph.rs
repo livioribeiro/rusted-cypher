@@ -118,9 +118,11 @@ impl GraphClient {
         self.cypher_query_params(statement, BTreeMap::new())
     }
 
-    pub fn cypher_query_params(&self, statement: &str, params: BTreeMap<String, Value>) -> Result<Vec<CypherResult>, Box<Error>> {
+    pub fn cypher_query_params(&self, statement: &str, parameters: BTreeMap<String, Value>)
+            -> Result<Vec<CypherResult>, Box<Error>> {
+
         let mut query = self.cypher.query();
-        query.add_statement(Statement::new(statement, params));
+        query.add_statement(Statement::new(statement, parameters));
 
         query.send()
     }

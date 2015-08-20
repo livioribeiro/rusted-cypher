@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Neo4jError {
     pub message: String,
     pub code: String,

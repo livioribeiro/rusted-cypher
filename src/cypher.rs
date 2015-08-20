@@ -22,10 +22,16 @@ impl Statement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct CypherResult {
     pub columns: Vec<String>,
     pub data: Vec<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct QueryResult {
+    results: Vec<CypherResult>,
+    errors: Vec<Neo4jError>,
 }
 
 pub struct CypherQuery<'a> {
@@ -65,33 +71,16 @@ impl<'a> CypherQuery<'a> {
         let mut res = try!(req.send());
 
         let result: Value = try!(serde_json::de::from_reader(&mut res));
-        let errors = result.find("errors").unwrap().as_array().unwrap();
+        match serde_json::value::from_value::<QueryResult>(result) {
+            Ok(result) => {
+                if result.errors.len() > 0 {
+                    return Err(Box::new(GraphError::neo4j_error(result.errors)))
+                }
 
-        if errors.len() > 0 {
-            let mut error_list = Vec::new();
-            for error in errors {
-                let message = error.find("message").unwrap().as_string().unwrap();
-                let code = error.find("code").unwrap().as_string().unwrap();
-
-                error_list.push(Neo4jError { message: message.to_string(), code: code.to_string() });
+                return Ok(result.results);
             }
-
-            return Err(Box::new(GraphError::neo4j_error(error_list)));
+            Err(e) => return Err(Box::new(e))
         }
-
-        let mut cypher_result = Vec::new();
-        for result in result.find("results").unwrap().as_array().unwrap() {
-            let mut columns = Vec::new();
-            for column in result.find("columns").unwrap().as_array().unwrap() {
-                columns.push(column.as_string().unwrap().to_owned());
-            }
-
-            let data = result.find("data").unwrap().as_array().unwrap();
-
-            cypher_result.push(CypherResult { columns: columns, data: data.to_owned() });
-        }
-
-        Ok(cypher_result)
     }
 }
 
@@ -119,5 +108,41 @@ impl Cypher {
             statements: Vec::new(),
             cypher: &self,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::rc::Rc;
+    use hyper::{Client, Url};
+    use hyper::header::{Authorization, Basic, ContentType, Headers};
+
+    #[test]
+    fn query() {
+        let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+        let client = Rc::new(Client::new());
+
+        let mut headers = Headers::new();
+        headers.set(Authorization(
+            Basic {
+                username: "neo4j".to_owned(),
+                password: Some("neo4j".to_owned()),
+            }
+        ));
+        headers.set(ContentType::json());
+        let headers = Rc::new(headers);
+
+        let cypher = Cypher::new(cypher_endpoint, client, headers);
+        let mut query = cypher.query();
+
+        query.add_simple_statement("match n return n");
+
+        let result = query.send();
+        assert!(result.is_ok());
+
+        let result = result.unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
     }
 }
