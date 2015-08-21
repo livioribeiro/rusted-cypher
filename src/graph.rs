@@ -148,10 +148,8 @@ mod tests {
     fn cypher_query() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let result = graph.cypher_query("match n return n");
-        assert!(result.is_ok());
+        let result = graph.cypher_query("match n return n").unwrap();
 
-        let result = result.unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
@@ -164,11 +162,8 @@ mod tests {
         params.insert("name".to_owned(), Value::String("Neo".to_owned()));
 
         let result = graph.cypher_query_params(
-            "match (n {name: {name}}) return n", params);
-
-        assert!(result.is_ok());
-
-        let result = result.unwrap();
+            "match (n {name: {name}}) return n", params
+        ).unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
@@ -180,22 +175,17 @@ mod tests {
         let mut query = graph.cypher.query();
         query.add_simple_statement("match n return n");
 
-        let result = query.send();
-        assert!(result.is_ok());
+        let result = query.send().unwrap();
 
-        let result = result.unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
 
-    #[test]
+    // #[test]
     fn create_delete() {
         let graph = GraphClient::connect(URL).unwrap();
+        graph.cypher_query("create (n {name: 'Rust', lastname: 'Language'})").unwrap();
 
-        let result = graph.cypher_query("create (n {name: 'Rust', lastname: 'Language'})");
-        assert!(result.is_ok());
-
-        let result = graph.cypher_query("match n delete n");
-        assert!(result.is_ok());
+        graph.cypher_query("match n delete n").unwrap();
     }
 }

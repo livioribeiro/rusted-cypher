@@ -28,6 +28,48 @@ pub struct CypherResult {
     pub data: Vec<Value>,
 }
 
+impl CypherResult {
+    pub fn iter(&self) -> Iter {
+        Iter::new(&self.data)
+    }
+}
+
+pub struct IntoIter(Vec<Value>);
+
+impl Iterator for IntoIter {
+    type Item = Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop().map(
+            |item| item.find("row").expect("Wrong response: Missing 'row' property").to_owned()
+        )
+    }
+}
+
+pub struct Iter<'a> {
+    current_index: usize,
+    data: &'a Vec<Value>,
+}
+
+impl<'a> Iter<'a> {
+    pub fn new(data: &'a Vec<Value>) -> Self {
+        Iter {
+            current_index: 0_usize,
+            data: data,
+        }
+    }
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Vec<Value>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.data.get(self.current_index);
+        item.map(|i| {
+            self.current_index += 1;
+            i.find("row").unwrap().as_array().unwrap()
+        })
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct QueryResult {
     results: Vec<CypherResult>,
@@ -118,9 +160,10 @@ mod tests {
     use hyper::{Client, Url};
     use hyper::header::{Authorization, Basic, ContentType, Headers};
 
-    #[test]
-    fn query() {
-        let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+    const URL: &'static str = "http://localhost:7474/db/data/transaction";
+
+    fn get_cypher() -> Cypher {
+        let cypher_endpoint = Url::parse(URL).unwrap();
         let client = Rc::new(Client::new());
 
         let mut headers = Headers::new();
@@ -133,16 +176,49 @@ mod tests {
         headers.set(ContentType::json());
         let headers = Rc::new(headers);
 
-        let cypher = Cypher::new(cypher_endpoint, client, headers);
+        Cypher::new(cypher_endpoint, client, headers)
+    }
+
+    #[test]
+    fn query() {
+        let cypher = get_cypher();
         let mut query = cypher.query();
 
         query.add_simple_statement("match n return n");
 
-        let result = query.send();
-        assert!(result.is_ok());
+        let result = query.send().unwrap();
 
-        let result = result.unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn into_iter() {
+        let cypher = get_cypher();
+        let mut query = cypher.query();
+
+        query.add_simple_statement(
+            "create (n {name: 'Name', lastname: 'LastName'}), (m {name: 'Name', lastname: 'LastName'})");
+
+        query.send().unwrap();
+
+        let mut query = cypher.query();
+        query.add_simple_statement("match n return n");
+
+        let result = query.send().unwrap();
+
+        assert_eq!(result[0].data.len(), 2);
+
+        let result = result.get(0).unwrap().to_owned();
+        for row in result.iter() {
+            assert!(row[0].find("name").is_some());
+            assert!(row[0].find("lastname").is_some());
+            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "Name");
+            assert_eq!(row[0].find("lastname").unwrap().as_string().unwrap(), "LastName");
+        }
+
+        let mut query = cypher.query();
+        query.add_simple_statement("match n delete n");
+        query.send().unwrap();
     }
 }
