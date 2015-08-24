@@ -34,17 +34,6 @@ impl CypherResult {
     }
 }
 
-pub struct IntoIter(Vec<Value>);
-
-impl Iterator for IntoIter {
-    type Item = Value;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.pop().map(
-            |item| item.find("row").expect("Wrong response: Missing 'row' property").to_owned()
-        )
-    }
-}
-
 pub struct Iter<'a> {
     current_index: usize,
     data: &'a Vec<Value>,
@@ -65,7 +54,7 @@ impl<'a> Iterator for Iter<'a> {
         let item = self.data.get(self.current_index);
         item.map(|i| {
             self.current_index += 1;
-            i.find("row").unwrap().as_array().unwrap()
+            i.find("row").expect("Wrong result. Missing 'row' property").as_array().unwrap()
         })
     }
 }
@@ -193,32 +182,32 @@ mod tests {
     }
 
     #[test]
-    fn into_iter() {
+    fn iter() {
         let cypher = get_cypher();
         let mut query = cypher.query();
 
         query.add_simple_statement(
-            "create (n {name: 'Name', lastname: 'LastName'}), (m {name: 'Name', lastname: 'LastName'})");
+            "create (n {name: 'test_iter', lastname: 'LastName'}), (m {name: 'test_iter', lastname: 'LastName'})");
 
         query.send().unwrap();
 
         let mut query = cypher.query();
-        query.add_simple_statement("match n return n");
+        query.add_simple_statement("match n where n.name = 'test_iter' return n");
 
         let result = query.send().unwrap();
 
         assert_eq!(result[0].data.len(), 2);
 
-        let result = result.get(0).unwrap().to_owned();
+        let result = result.get(0).unwrap();
         for row in result.iter() {
             assert!(row[0].find("name").is_some());
             assert!(row[0].find("lastname").is_some());
-            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "Name");
+            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "test_iter");
             assert_eq!(row[0].find("lastname").unwrap().as_string().unwrap(), "LastName");
         }
 
         let mut query = cypher.query();
-        query.add_simple_statement("match n delete n");
+        query.add_simple_statement("match n where n.name = 'test_iter' delete n");
         query.send().unwrap();
     }
 }

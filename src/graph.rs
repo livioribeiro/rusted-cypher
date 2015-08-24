@@ -181,11 +181,10 @@ mod tests {
         assert_eq!(result[0].columns[0], "n");
     }
 
-    // #[test]
+    #[test]
     fn create_delete() {
         let graph = GraphClient::connect(URL).unwrap();
-        graph.cypher_query("create (n {name: 'Rust', lastname: 'Language'})").unwrap();
-
-        graph.cypher_query("match n delete n").unwrap();
+        graph.cypher_query("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
+        graph.cypher_query("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
     }
 }
