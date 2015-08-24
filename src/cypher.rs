@@ -1,23 +1,153 @@
+//! Provides structs used to interact with the cypher transaction endpoint
+//!
+//! The types declared in this module, save for `Statement`, don't need to be instantiated
+//! directly, since they can be obtained from the `GraphClient`
+//!
+//! # Examples
+//!
+//! ```
+//! # extern crate hyper;
+//! # extern crate rusted_cypher;
+//! # fn main() {
+//! # use std::collections::BTreeMap;
+//! # use std::rc::Rc;
+//! # use hyper::{Client, Url};
+//! # use hyper::header::{Authorization, Basic, ContentType, Headers};
+//! # use rusted_cypher::cypher::Cypher;
+//! let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+//! let client = Rc::new(Client::new());
+//! let mut headers = Headers::new();
+//! headers.set(Authorization(
+//!     Basic {
+//!         username: "neo4j".to_owned(),
+//!         password: Some("neo4j".to_owned()),
+//!     }
+//! ));
+//! headers.set(ContentType::json());
+//! let headers = Rc::new(headers);
+//! let cypher = Cypher::new(url, client, headers);
+//! let mut query = cypher.query();
+//! query.add_simple_statement("match n return n");
+//! let result = query.send().unwrap();
+//! for row in result.iter() {
+//!     println!("{:?}", row);
+//! }
+//! # }
+//! ```
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::Headers;
+use serde::Serialize;
 use serde_json::{self, Value};
 
 use super::error::{GraphError, Neo4jError};
 
+/// Represents the cypher endpoint of a neo4j server
+///
+/// The `Cypher` struct holds information about the cypher enpoint. It is used to create the queries
+/// that are sent to the server.
+pub struct Cypher {
+    endpoint: Url,
+    client: Rc<Client>,
+    headers: Rc<Headers>,
+}
+
+impl Cypher {
+    /// Creates a new Cypher
+    ///
+    /// Its arguments are the cypher transaction endpoint, a hyper client and the HTTP headers
+    /// containing HTTP Basic Authentication, if needed.
+    pub fn new(endpoint: Url, client: Rc<Client>, headers: Rc<Headers>) -> Self {
+        Cypher {
+            endpoint: endpoint,
+            client: client,
+            headers: headers,
+        }
+    }
+
+    fn endpoint(&self) -> &Url {
+        &self.endpoint
+    }
+
+    /// Creates a new `CypherQuery`
+    pub fn query(&self) -> CypherQuery {
+        CypherQuery {
+            statements: Vec::new(),
+            cypher: &self,
+        }
+    }
+}
+
+/// Represents a cypher query
+///
+/// A cypher query is composed by statements, each one containing the query itself and its parameters.
+///
+/// The query parameters must implement `Serialize` so they can be serialized into JSON in order to
+/// be sent to the server
+pub struct CypherQuery<'a> {
+    statements: Vec<Statement>,
+    cypher: &'a Cypher,
+}
+
+impl<'a> CypherQuery<'a> {
+    pub fn add_simple_statement(&mut self, statement: &str) {
+        self.statements.push(Statement {
+            statement: statement.to_owned(),
+            parameters: Value::Null,
+        });
+    }
+
+    pub fn add_statement(&mut self, statement: Statement) {
+        self.statements.push(statement);
+    }
+
+    pub fn set_statements(&mut self, statements: Vec<Statement>) {
+        self.statements = statements;
+    }
+
+    pub fn send(self) -> Result<Vec<CypherResult>, Box<Error>> {
+        let client = self.cypher.client.clone();
+        let headers = self.cypher.headers.clone();
+
+        let mut json = BTreeMap::new();
+        json.insert("statements", self.statements);
+        let json = try!(serde_json::to_string(&json));
+
+        let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
+        let req = client.post(&cypher_commit)
+            .headers((*headers).to_owned())
+            .body(&json);
+
+        let mut res = try!(req.send());
+
+        let result: Value = try!(serde_json::de::from_reader(&mut res));
+        match serde_json::value::from_value::<QueryResult>(result) {
+            Ok(result) => {
+                if result.errors.len() > 0 {
+                    return Err(Box::new(GraphError::new_neo4j_error(result.errors)))
+                }
+
+                return Ok(result.results);
+            }
+            Err(e) => return Err(Box::new(e))
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Statement {
     statement: String,
-    parameters: BTreeMap<String, Value>,
+    parameters: Value,
 }
 
 impl Statement {
-    pub fn new(statement: &str, parameters: BTreeMap<String, Value>) -> Self {
+    pub fn new<T: Serialize>(statement: &str, parameters: T) -> Self {
         Statement {
             statement: statement.to_owned(),
-            parameters: parameters,
+            parameters: serde_json::value::to_value(&parameters),
         }
     }
 }
@@ -65,108 +195,29 @@ struct QueryResult {
     errors: Vec<Neo4jError>,
 }
 
-pub struct CypherQuery<'a> {
-    statements: Vec<Statement>,
-    cypher: &'a Cypher,
-}
+#[cfg(test)]
+pub fn get_cypher() -> Cypher {
+    use hyper::header::{Authorization, Basic, ContentType, Headers};
 
-impl<'a> CypherQuery<'a> {
-    pub fn add_simple_statement(&mut self, statement: &str) {
-        self.statements.push(Statement {
-            statement: statement.to_owned(),
-            parameters: BTreeMap::new(),
-        });
-    }
+    let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+    let client = Rc::new(Client::new());
 
-    pub fn add_statement(&mut self, statement: Statement) {
-        self.statements.push(statement);
-    }
-
-    pub fn set_statements(&mut self, statements: Vec<Statement>) {
-        self.statements = statements;
-    }
-
-    pub fn send(self) -> Result<Vec<CypherResult>, Box<Error>> {
-        let client = self.cypher.client.clone();
-        let headers = self.cypher.headers.clone();
-
-        let mut json = BTreeMap::new();
-        json.insert("statements", self.statements);
-        let json = try!(serde_json::to_string(&json));
-
-        let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
-        let req = client.post(&cypher_commit)
-            .headers((*headers).to_owned())
-            .body(&json);
-
-        let mut res = try!(req.send());
-
-        let result: Value = try!(serde_json::de::from_reader(&mut res));
-        match serde_json::value::from_value::<QueryResult>(result) {
-            Ok(result) => {
-                if result.errors.len() > 0 {
-                    return Err(Box::new(GraphError::neo4j_error(result.errors)))
-                }
-
-                return Ok(result.results);
-            }
-            Err(e) => return Err(Box::new(e))
+    let mut headers = Headers::new();
+    headers.set(Authorization(
+        Basic {
+            username: "neo4j".to_owned(),
+            password: Some("neo4j".to_owned()),
         }
-    }
-}
+    ));
+    headers.set(ContentType::json());
+    let headers = Rc::new(headers);
 
-pub struct Cypher {
-    endpoint: Url,
-    client: Rc<Client>,
-    headers: Rc<Headers>,
-}
-
-impl Cypher {
-    pub fn new(endpoint: Url, client: Rc<Client>, headers: Rc<Headers>) -> Self {
-        Cypher {
-            endpoint: endpoint,
-            client: client,
-            headers: headers,
-        }
-    }
-
-    fn endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
-    pub fn query(&self) -> CypherQuery {
-        CypherQuery {
-            statements: Vec::new(),
-            cypher: &self,
-        }
-    }
+    Cypher::new(cypher_endpoint, client, headers)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::rc::Rc;
-    use hyper::{Client, Url};
-    use hyper::header::{Authorization, Basic, ContentType, Headers};
-
-    const URL: &'static str = "http://localhost:7474/db/data/transaction";
-
-    fn get_cypher() -> Cypher {
-        let cypher_endpoint = Url::parse(URL).unwrap();
-        let client = Rc::new(Client::new());
-
-        let mut headers = Headers::new();
-        headers.set(Authorization(
-            Basic {
-                username: "neo4j".to_owned(),
-                password: Some("neo4j".to_owned()),
-            }
-        ));
-        headers.set(ContentType::json());
-        let headers = Rc::new(headers);
-
-        Cypher::new(cypher_endpoint, client, headers)
-    }
 
     #[test]
     fn query() {

@@ -4,6 +4,7 @@ use std::io::Read;
 use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
+use serde::Serialize;
 use serde_json::{self, Value};
 use semver::Version;
 
@@ -72,10 +73,10 @@ impl GraphClient {
                                 }
                             });
                         }
-                        return Err(Box::new(GraphError::neo4j_error(errors)))
+                        return Err(Box::new(GraphError::new_neo4j_error(errors)))
                     },
                     None => return Err(Box::new(
-                        GraphError { message: "Something wrong happened".to_owned(), neo4j_errors: None, error: None}
+                        GraphError::new("Something wrong happened", None, None)
                     ))
                 }
             }
@@ -114,11 +115,41 @@ impl GraphClient {
         &self.service_root
     }
 
+    /// Executes a cypher query
+    ///
+    /// Executes the provided cypher query and return the result as a `Vec<CypherResult>``
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use rusted_cypher::GraphClient;
+    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+    /// let result = graph.cypher_query("match n return n").unwrap();
+    /// # assert_eq!(result[0].columns.len(), 1);
+    /// # assert_eq!(result[0].columns[0], "n");
+    /// ```
     pub fn cypher_query(&self, statement: &str) -> Result<Vec<CypherResult>, Box<Error>> {
-        self.cypher_query_params(statement, BTreeMap::new())
+        self.cypher_query_params(statement, &BTreeMap::<String, Value>::new())
     }
 
-    pub fn cypher_query_params(&self, statement: &str, parameters: BTreeMap<String, Value>)
+    /// Executes a cypher query with parameters
+    ///
+    /// Executes the provided cypher query with the given parameters and return the result as a `Vec<CypherResult>`
+    ///
+    /// ```
+    /// # use std::collections::BTreeMap;
+    /// # use rusted_cypher::GraphClient;
+    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+    /// let mut params = BTreeMap::new();
+    /// params.insert("name".to_owned(), "Rust Language");
+    /// let result = graph.cypher_query_params(
+    ///     "match (n {name: {name}}) return n",
+    ///     &params
+    /// ).unwrap();
+    /// # assert_eq!(result[0].columns.len(), 1);
+    /// # assert_eq!(result[0].columns[0], "n");
+    /// ```
+    pub fn cypher_query_params<T: Serialize>(&self, statement: &str, parameters: &BTreeMap<String ,T>)
             -> Result<Vec<CypherResult>, Box<Error>> {
 
         let mut query = self.cypher.query();
@@ -131,7 +162,6 @@ impl GraphClient {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use serde_json::Value;
     use super::*;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
@@ -159,10 +189,10 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut params = BTreeMap::new();
-        params.insert("name".to_owned(), Value::String("Neo".to_owned()));
+        params.insert("name".to_owned(), "Neo");
 
         let result = graph.cypher_query_params(
-            "match (n {name: {name}}) return n", params
+            "match (n {name: {name}}) return n", &params
         ).unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");

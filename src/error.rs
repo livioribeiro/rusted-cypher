@@ -9,17 +9,32 @@ pub struct Neo4jError {
 
 #[derive(Debug)]
 pub struct GraphError {
-    pub message: String,
-    pub neo4j_errors: Option<Vec<Neo4jError>>,
-    pub error: Option<Box<Error>>,
+    message: String,
+    neo4j_errors: Option<Vec<Neo4jError>>,
+    cause: Option<Box<Error>>,
 }
 
 impl GraphError {
-    pub fn neo4j_error(errors: Vec<Neo4jError>) -> Self {
+    pub fn new(message: &str, neo4j_errors: Option<Vec<Neo4jError>>, cause: Option<Box<Error>>) -> Self {
+        GraphError {
+            message: message.to_owned(),
+            neo4j_errors: neo4j_errors,
+            cause: cause,
+        }
+    }
+    pub fn new_neo4j_error(errors: Vec<Neo4jError>) -> Self {
         GraphError {
             message: "Neo4j Error".to_owned(),
             neo4j_errors: Some(errors),
-            error: None,
+            cause: None,
+        }
+    }
+
+    pub fn new_error(error: Box<Error>) -> Self {
+        GraphError {
+            message: error.description().to_owned(),
+            neo4j_errors: None,
+            cause: Some(error),
         }
     }
 }
@@ -33,5 +48,12 @@ impl fmt::Display for GraphError {
 impl Error for GraphError {
     fn description(&self) -> &str {
         &self.message
+    }
+
+    fn cause<'a>(&'a self) -> Option<&'a Error> {
+        match self.cause {
+            None => None,
+            Some(ref e) => Some(&**e)
+        }
     }
 }
