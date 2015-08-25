@@ -29,15 +29,6 @@ pub struct ServiceRoot {
     pub neo4j_version: String,
 }
 
-#[allow(dead_code)]
-pub struct GraphClient {
-    client: Rc<Client>,
-    headers: Rc<Headers>,
-    service_root: ServiceRoot,
-    neo4j_version: Version,
-    cypher: Cypher,
-}
-
 fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
     let service_root: ServiceRoot = match serde_json::de::from_str(json_string) {
         Ok(value) => value,
@@ -66,6 +57,15 @@ fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
     Ok(service_root)
 }
 
+#[allow(dead_code)]
+pub struct GraphClient {
+    client: Rc<Client>,
+    headers: Rc<Headers>,
+    service_root: ServiceRoot,
+    neo4j_version: Version,
+    cypher: Cypher,
+}
+
 impl GraphClient {
     pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
         let url = try!(Url::parse(endpoint));
@@ -87,7 +87,7 @@ impl GraphClient {
         let mut buf = String::new();
         match res.read_to_string(&mut buf) {
             Err(e) => return Err(GraphError::new_error(Box::new(e))),
-            Ok(_) => {}
+            _ => {}
         }
 
         let service_root = try!(decode_service_root(&buf));
@@ -123,13 +123,13 @@ impl GraphClient {
     /// ```
     /// # use rusted_cypher::GraphClient;
     /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-    /// let result = graph.cypher_query("match n return n");
+    /// let result = graph.query("match n return n");
     /// # let result = result.unwrap();
     /// # assert_eq!(result[0].columns.len(), 1);
     /// # assert_eq!(result[0].columns[0], "n");
     /// ```
-    pub fn cypher_query(&self, statement: &str) -> Result<Vec<CypherResult>, GraphError> {
-        self.cypher_query_params(statement, &BTreeMap::<String, Value>::new())
+    pub fn query(&self, statement: &str) -> Result<Vec<CypherResult>, GraphError> {
+        self.query_params(statement, &BTreeMap::<String, Value>::new())
     }
 
     /// Executes a cypher query with parameters
@@ -140,18 +140,22 @@ impl GraphClient {
     /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
     /// let mut params = BTreeMap::new();
     /// params.insert("name".to_owned(), "Rust Language");
-    /// let result = graph.cypher_query_params("match (n {name: {name}}) return n", &params);
+    /// let result = graph.query_params("match (n {name: {name}}) return n", &params);
     /// # let result = result.unwrap();
     /// # assert_eq!(result[0].columns.len(), 1);
     /// # assert_eq!(result[0].columns[0], "n");
     /// ```
-    pub fn cypher_query_params<T: Serialize>(&self, statement: &str, parameters: &BTreeMap<String ,T>)
+    pub fn query_params<T: Serialize>(&self, statement: &str, parameters: &BTreeMap<String ,T>)
             -> Result<Vec<CypherResult>, GraphError> {
 
         let mut query = self.cypher.query();
         query.add_statement(Statement::new(statement, parameters));
 
         query.send()
+    }
+
+    pub fn cypher(&self) -> &Cypher {
+        &self.cypher
     }
 }
 
@@ -174,7 +178,7 @@ mod tests {
     fn cypher_query() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let result = graph.cypher_query("match n return n").unwrap();
+        let result = graph.query("match n return n").unwrap();
 
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
@@ -187,7 +191,7 @@ mod tests {
         let mut params = BTreeMap::new();
         params.insert("name".to_owned(), "Neo");
 
-        let result = graph.cypher_query_params(
+        let result = graph.query_params(
             "match (n {name: {name}}) return n", &params
         ).unwrap();
         assert_eq!(result[0].columns.len(), 1);
@@ -210,7 +214,7 @@ mod tests {
     #[test]
     fn create_delete() {
         let graph = GraphClient::connect(URL).unwrap();
-        graph.cypher_query("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
-        graph.cypher_query("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
+        graph.query("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
+        graph.query("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
     }
 }

@@ -207,28 +207,29 @@ struct QueryResult {
 }
 
 #[cfg(test)]
-pub fn get_cypher() -> Cypher {
-    use hyper::header::{Authorization, Basic, ContentType, Headers};
-
-    let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-    let client = Rc::new(Client::new());
-
-    let mut headers = Headers::new();
-    headers.set(Authorization(
-        Basic {
-            username: "neo4j".to_owned(),
-            password: Some("neo4j".to_owned()),
-        }
-    ));
-    headers.set(ContentType::json());
-    let headers = Rc::new(headers);
-
-    Cypher::new(cypher_endpoint, client, headers)
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
+
+    pub fn get_cypher() -> Cypher {
+        use std::rc::Rc;
+        use hyper::{Client, Url};
+        use hyper::header::{Authorization, Basic, ContentType, Headers};
+
+        let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+        let client = Rc::new(Client::new());
+
+        let mut headers = Headers::new();
+        headers.set(Authorization(
+            Basic {
+                username: "neo4j".to_owned(),
+                password: Some("neo4j".to_owned()),
+            }
+        ));
+        headers.set(ContentType::json());
+        let headers = Rc::new(headers);
+
+        Cypher::new(cypher_endpoint, client, headers)
+    }
 
     #[test]
     fn query() {
