@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::Read;
-use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde_json::{self, Value};
@@ -58,8 +57,8 @@ fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
 
 #[allow(dead_code)]
 pub struct GraphClient {
-    client: Rc<Client>,
-    headers: Rc<Headers>,
+    client: Client,
+    headers: Headers,
     service_root: ServiceRoot,
     neo4j_version: Version,
     cypher: Cypher,
@@ -98,13 +97,10 @@ impl GraphClient {
         };
         let cypher_endpoint = try!(Url::parse(&service_root.transaction));
 
-        let client = Rc::new(client);
-        let headers = Rc::new(headers);
-
-        let cypher = Cypher::new(cypher_endpoint, client.clone(), headers.clone());
+        let cypher = Cypher::new(cypher_endpoint, headers.clone());
 
         Ok(GraphClient {
-            client: client,
+            client: Client::new(),
             headers: headers,
             service_root: service_root,
             neo4j_version: neo4j_version,

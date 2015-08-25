@@ -10,12 +10,10 @@
 //! # extern crate rusted_cypher;
 //! # fn main() {
 //! # use std::collections::BTreeMap;
-//! # use std::rc::Rc;
-//! # use hyper::{Client, Url};
+//! # use hyper::Url;
 //! # use hyper::header::{Authorization, Basic, ContentType, Headers};
 //! # use rusted_cypher::cypher::Cypher;
 //! let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-//! let client = Rc::new(Client::new());
 //!
 //! let mut headers = Headers::new();
 //! headers.set(Authorization(
@@ -26,9 +24,8 @@
 //! ));
 //!
 //! headers.set(ContentType::json());
-//! let headers = Rc::new(headers);
 //!
-//! let cypher = Cypher::new(url, client, headers);
+//! let cypher = Cypher::new(url, headers);
 //!
 //! let mut query = cypher.query();
 //! query.add_simple_statement("match n return n");
@@ -44,7 +41,6 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::Headers;
 use serde::Serialize;
@@ -58,8 +54,8 @@ use super::error::{GraphError, Neo4jError};
 /// that are sent to the server.
 pub struct Cypher {
     endpoint: Url,
-    client: Rc<Client>,
-    headers: Rc<Headers>,
+    client: Client,
+    headers: Headers,
 }
 
 impl Cypher {
@@ -67,16 +63,20 @@ impl Cypher {
     ///
     /// Its arguments are the cypher transaction endpoint, a hyper client and the HTTP headers
     /// containing HTTP Basic Authentication, if needed.
-    pub fn new(endpoint: Url, client: Rc<Client>, headers: Rc<Headers>) -> Self {
+    pub fn new(endpoint: Url, headers: Headers) -> Self {
         Cypher {
             endpoint: endpoint,
-            client: client,
+            client: Client::new(),
             headers: headers,
         }
     }
 
     fn endpoint(&self) -> &Url {
         &self.endpoint
+    }
+
+    fn client(&self) -> &Client {
+        &self.client
     }
 
     /// Creates a new `CypherQuery`
@@ -162,7 +162,6 @@ impl<'a> CypherQuery<'a> {
     /// into a `Vec<CypherResult>` in order to match the response of the neo4j api. If there is an
     /// error, a `GraphError` is returned.
     pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
-        let client = self.cypher.client.clone();
         let headers = self.cypher.headers.clone();
 
         let mut json = BTreeMap::new();
@@ -170,8 +169,8 @@ impl<'a> CypherQuery<'a> {
         let json = try!(serde_json::to_string(&json));
 
         let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
-        let req = client.post(&cypher_commit)
-            .headers((*headers).to_owned())
+        let req = self.cypher.client().post(&cypher_commit)
+            .headers(headers)
             .body(&json);
 
         let mut res = try!(req.send());
@@ -254,13 +253,11 @@ struct QueryResult {
 mod tests {
     use super::*;
 
-    pub fn get_cypher() -> Cypher {
-        use std::rc::Rc;
-        use hyper::{Client, Url};
+    fn get_cypher() -> Cypher {
+        use hyper::Url;
         use hyper::header::{Authorization, Basic, ContentType, Headers};
 
         let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-        let client = Rc::new(Client::new());
 
         let mut headers = Headers::new();
         headers.set(Authorization(
@@ -270,9 +267,8 @@ mod tests {
             }
         ));
         headers.set(ContentType::json());
-        let headers = Rc::new(headers);
 
-        Cypher::new(cypher_endpoint, client, headers)
+        Cypher::new(cypher_endpoint, headers)
     }
 
     #[test]
