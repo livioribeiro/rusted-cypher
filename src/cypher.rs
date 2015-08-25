@@ -16,6 +16,7 @@
 //! # use rusted_cypher::cypher::Cypher;
 //! let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
 //! let client = Rc::new(Client::new());
+//!
 //! let mut headers = Headers::new();
 //! headers.set(Authorization(
 //!     Basic {
@@ -23,12 +24,17 @@
 //!         password: Some("neo4j".to_owned()),
 //!     }
 //! ));
+//!
 //! headers.set(ContentType::json());
 //! let headers = Rc::new(headers);
+//!
 //! let cypher = Cypher::new(url, client, headers);
+//!
 //! let mut query = cypher.query();
 //! query.add_simple_statement("match n return n");
+//!
 //! let result = query.send().unwrap();
+//!
 //! for row in result.iter() {
 //!     println!("{:?}", row);
 //! }
@@ -108,7 +114,12 @@ impl<'a> CypherQuery<'a> {
         self.statements = statements;
     }
 
-    pub fn send(self) -> Result<Vec<CypherResult>, Box<Error>> {
+    /// Sends the query to the server
+    ///
+    /// The statements contained in the query are sent to the server and the results are parsed
+    /// into a `Vec<CypherResult>` in order to match the response of the neo4j api. If there is an
+    /// error, a `GraphError` is returned.
+    pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
         let client = self.cypher.client.clone();
         let headers = self.cypher.headers.clone();
 
@@ -127,12 +138,12 @@ impl<'a> CypherQuery<'a> {
         match serde_json::value::from_value::<QueryResult>(result) {
             Ok(result) => {
                 if result.errors.len() > 0 {
-                    return Err(Box::new(GraphError::new_neo4j_error(result.errors)))
+                    return Err(GraphError::new_neo4j_error(result.errors))
                 }
 
                 return Ok(result.results);
             }
-            Err(e) => return Err(Box::new(e))
+            Err(e) => return Err(GraphError::new_error(Box::new(e)))
         }
     }
 }

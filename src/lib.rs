@@ -9,6 +9,7 @@
 //! iterate over the results. It MAY be extended to support other resources of the neo4j REST api.
 
 extern crate hyper;
+extern crate url;
 extern crate serde;
 extern crate serde_json;
 extern crate semver;
