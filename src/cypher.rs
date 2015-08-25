@@ -41,6 +41,7 @@
 //! # }
 //! ```
 
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::rc::Rc;
@@ -84,6 +85,47 @@ impl Cypher {
             statements: Vec::new(),
             cypher: &self,
         }
+    }
+
+    /// Executes a cypher query
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use rusted_cypher::GraphClient;
+    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+    /// # let cypher = graph.cypher();
+    /// let result = cypher.exec("match n return n");
+    /// # let result = result.unwrap();
+    /// # assert_eq!(result[0].columns.len(), 1);
+    /// # assert_eq!(result[0].columns[0], "n");
+    /// ```
+    pub fn exec(&self, statement: &str) -> Result<Vec<CypherResult>, GraphError> {
+        self.exec_params(statement, &BTreeMap::<String, Value>::new())
+    }
+
+    /// Executes a cypher query with parameters
+    ///
+    /// ```
+    /// # use std::collections::BTreeMap;
+    /// # use rusted_cypher::GraphClient;
+    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+    /// # let cypher = graph.cypher();
+    /// let mut params = BTreeMap::new();
+    /// params.insert("name", "Rust Language");
+    /// let result = cypher.exec_params("match (n {name: {name}}) return n", &params);
+    /// # let result = result.unwrap();
+    /// # assert_eq!(result[0].columns.len(), 1);
+    /// # assert_eq!(result[0].columns[0], "n");
+    /// ```
+    pub fn exec_params<K, V>(&self, statement: &str, parameters: &BTreeMap<K ,V>)
+            -> Result<Vec<CypherResult>, GraphError>
+            where K: Borrow<str> + Ord + Serialize, V: Serialize {
+
+        let mut query = self.query();
+        query.add_statement(Statement::new(statement, parameters));
+
+        query.send()
     }
 }
 
@@ -154,11 +196,13 @@ pub struct Statement {
     parameters: Value,
 }
 
-impl Statement {
-    pub fn new<T: Serialize>(statement: &str, parameters: T) -> Self {
+impl Statement  {
+    pub fn new<K, V>(statement: &str, parameters: &BTreeMap<K, V>) -> Self
+        where K: Borrow<str> + Ord + Serialize, V: Serialize {
+
         Statement {
             statement: statement.to_owned(),
-            parameters: serde_json::value::to_value(&parameters),
+            parameters: serde_json::value::to_value(parameters),
         }
     }
 }

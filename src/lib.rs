@@ -26,19 +26,19 @@
 //!
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", false);
-//! query.add_statement(Statement::new("CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })", params));
+//! query.add_statement(Statement::new("CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })", &params));
 //!
 //! query.send().unwrap();
 //!
-//! graph.query("CREATE (n:LANG { name: 'Python', level: 'High', safe: true })").unwrap();
+//! graph.cypher().exec("CREATE (n:LANG { name: 'Python', level: 'High', safe: true })").unwrap();
 //!
-//! let result = graph.query("MATCH (n:LANG) RETURN n").unwrap();
+//! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n").unwrap();
 //!
 //! for row in result.iter() {
 //!     println!("{:?}", row);
 //! }
 //!
-//! graph.query("MATCH (n:LANG) DELETE n").unwrap();
+//! graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
 //! ```
 
 extern crate hyper;

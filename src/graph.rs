@@ -4,11 +4,10 @@ use std::io::Read;
 use std::rc::Rc;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
-use serde::Serialize;
 use serde_json::{self, Value};
 use semver::Version;
 
-use cypher::{Cypher, CypherResult, Statement};
+use cypher::Cypher;
 use error::{GraphError, Neo4jError};
 
 #[derive(Deserialize)]
@@ -67,6 +66,7 @@ pub struct GraphClient {
 }
 
 impl GraphClient {
+    /// Connects to the neo4j server
     pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
         let url = try!(Url::parse(endpoint));
         let mut headers = Headers::new();
@@ -116,44 +116,6 @@ impl GraphClient {
         &self.neo4j_version
     }
 
-    /// Executes a cypher query
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use rusted_cypher::GraphClient;
-    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-    /// let result = graph.query("match n return n");
-    /// # let result = result.unwrap();
-    /// # assert_eq!(result[0].columns.len(), 1);
-    /// # assert_eq!(result[0].columns[0], "n");
-    /// ```
-    pub fn query(&self, statement: &str) -> Result<Vec<CypherResult>, GraphError> {
-        self.query_params(statement, &BTreeMap::<String, Value>::new())
-    }
-
-    /// Executes a cypher query with parameters
-    ///
-    /// ```
-    /// # use std::collections::BTreeMap;
-    /// # use rusted_cypher::GraphClient;
-    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-    /// let mut params = BTreeMap::new();
-    /// params.insert("name".to_owned(), "Rust Language");
-    /// let result = graph.query_params("match (n {name: {name}}) return n", &params);
-    /// # let result = result.unwrap();
-    /// # assert_eq!(result[0].columns.len(), 1);
-    /// # assert_eq!(result[0].columns[0], "n");
-    /// ```
-    pub fn query_params<T: Serialize>(&self, statement: &str, parameters: &BTreeMap<String ,T>)
-            -> Result<Vec<CypherResult>, GraphError> {
-
-        let mut query = self.cypher.query();
-        query.add_statement(Statement::new(statement, parameters));
-
-        query.send()
-    }
-
     pub fn cypher(&self) -> &Cypher {
         &self.cypher
     }
@@ -178,7 +140,7 @@ mod tests {
     fn cypher_query() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let result = graph.query("match n return n").unwrap();
+        let result = graph.cypher().exec("match n return n").unwrap();
 
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
@@ -191,7 +153,7 @@ mod tests {
         let mut params = BTreeMap::new();
         params.insert("name".to_owned(), "Neo");
 
-        let result = graph.query_params(
+        let result = graph.cypher().exec_params(
             "match (n {name: {name}}) return n", &params
         ).unwrap();
         assert_eq!(result[0].columns.len(), 1);
@@ -214,7 +176,7 @@ mod tests {
     #[test]
     fn create_delete() {
         let graph = GraphClient::connect(URL).unwrap();
-        graph.query("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
-        graph.query("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
+        graph.cypher().exec("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
+        graph.cypher().exec("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
     }
 }
