@@ -1,5 +1,5 @@
-#![feature(custom_derive, plugin)]
-#![plugin(serde_macros)]
+#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
+#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
 //! Rust crate for accessing the cypher endpoint of a neo4j server
 //!
@@ -47,9 +47,8 @@ extern crate serde;
 extern crate serde_json;
 extern crate semver;
 
-pub mod cypher;
-pub mod graph;
-pub mod error;
+#[cfg(feature = "serde_macros")]
+include!("lib.rs.in");
 
-pub use graph::GraphClient;
-pub use cypher::Statement;
+#[cfg(not(feature = "serde_macros"))]
+include!(concat!(env!("OUT_DIR"), "/lib.rs"));

@@ -8,11 +8,20 @@ homepage = "https://github.com/livioribeiro/rusted-cypher"
 readme = "README.md"
 keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT"
+build = "build.rs"
+
+[features]
+default = ["serde_codegen"]
+nightly = ["serde_macros"]
+
+[build-dependencies]
+serde_codegen = { version = "0.5", optional = true }
+syntex = "0.11"
 
 [dependencies]
 hyper = "0.6"
 url = "0.2"
 serde = "0.5"
 serde_json = "0.5"
-serde_macros = "0.5"
+serde_macros = { version = "0.5", optional = true }
 semver = "0.1"
