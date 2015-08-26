@@ -31,10 +31,7 @@ fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
     let service_root: ServiceRoot = match serde_json::de::from_str(json_string) {
         Ok(value) => value,
         Err(e) => {
-            let error_response: Value = match serde_json::de::from_str(json_string) {
-                Ok(value) => value,
-                Err(e) => return Err(GraphError::new_error(Box::new(e))),
-            };
+            let error_response: Value = try!(serde_json::de::from_str(json_string));
             match error_response.find("errors") {
                 Some(e) => {
                     let mut errors = Vec::new();
@@ -112,6 +109,7 @@ impl GraphClient {
         &self.neo4j_version
     }
 
+    /// Gets a reference to the `Cypher` instance of the `GraphClient`
     pub fn cypher(&self) -> &Cypher {
         &self.cypher
     }
@@ -143,11 +141,11 @@ mod tests {
     }
 
     #[test]
-    fn cypher_query_params() {
+    fn cypher_query_with_params() {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut params = BTreeMap::new();
-        params.insert("name".to_owned(), "Neo");
+        params.insert("name", "Neo");
 
         let result = graph.cypher().exec_params(
             "match (n {name: {name}}) return n", &params
@@ -157,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn query() {
+    fn create_query() {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut query = graph.cypher.query();
@@ -170,9 +168,9 @@ mod tests {
     }
 
     #[test]
-    fn create_delete() {
+    fn create_delete_nodes() {
         let graph = GraphClient::connect(URL).unwrap();
-        graph.cypher().exec("create (n {name: 'test_create_delete', language: 'Rust Language'})").unwrap();
-        graph.cypher().exec("match (n {name: 'test_create_delete', language: 'Rust Language'}) delete n").unwrap();
+        graph.cypher().exec("create (n:TEST_GRAPH {name: 'Rust', level: 'low'})").unwrap();
+        graph.cypher().exec("match (n:TEST_GRAPH) delete n").unwrap();
     }
 }

@@ -290,12 +290,12 @@ mod tests {
         let mut query = cypher.query();
 
         query.add_simple_statement(
-            "create (n {name: 'test_iter', lastname: 'LastName'}), (m {name: 'test_iter', lastname: 'LastName'})");
+            "create (n:TEST_ITER {name: 'Test', lastname: 'Iter'}), (m:TEST_ITER {name: 'Test', lastname: 'Iter'})");
 
         query.send().unwrap();
 
         let mut query = cypher.query();
-        query.add_simple_statement("match n where n.name = 'test_iter' return n");
+        query.add_simple_statement("match (n:TEST_ITER) return n");
 
         let result = query.send().unwrap();
 
@@ -305,12 +305,12 @@ mod tests {
         for row in result.iter() {
             assert!(row[0].find("name").is_some());
             assert!(row[0].find("lastname").is_some());
-            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "test_iter");
-            assert_eq!(row[0].find("lastname").unwrap().as_string().unwrap(), "LastName");
+            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "Test");
+            assert_eq!(row[0].find("lastname").unwrap().as_string().unwrap(), "Iter");
         }
 
         let mut query = cypher.query();
-        query.add_simple_statement("match n where n.name = 'test_iter' delete n");
+        query.add_simple_statement("match (n:TEST_ITER) delete n");
         query.send().unwrap();
     }
 }
