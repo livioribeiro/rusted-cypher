@@ -2,8 +2,9 @@ use std::error::Error;
 use std::fmt;
 use std::string::FromUtf8Error;
 use hyper;
-use url;
 use serde_json;
+use time;
+use url;
 
 #[derive(Debug, Deserialize)]
 pub struct Neo4jError {
@@ -55,6 +56,27 @@ impl Error for GraphError {
     }
 }
 
+#[derive(Debug)]
+pub struct TransactionError(pub String);
+
+impl fmt::Display for TransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for TransactionError {
+    fn description(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<TransactionError> for GraphError {
+    fn from(error: TransactionError) -> Self {
+        GraphError::new_error(Box::new(error))
+    }
+}
+
 impl From<FromUtf8Error> for GraphError {
     fn from(error: FromUtf8Error) -> Self {
         GraphError::new_error(Box::new(error))
@@ -76,5 +98,26 @@ impl From<hyper::error::Error> for GraphError {
 impl From<serde_json::error::Error> for GraphError {
     fn from(error: serde_json::error::Error) -> Self {
         GraphError::new_error(Box::new(error))
+    }
+}
+
+#[derive(Debug)]
+pub struct TimeParseError(time::ParseError, String);
+
+impl fmt::Display for TimeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for TimeParseError {
+    fn description(&self) -> &str {
+        &self.1
+    }
+}
+
+impl From<time::ParseError> for GraphError {
+    fn from(error: time::ParseError) -> Self {
+        GraphError::new_error(Box::new(TimeParseError(error, format!("{}", error))))
     }
 }

@@ -42,10 +42,11 @@
 //! ```
 
 extern crate hyper;
-extern crate url;
 extern crate serde;
 extern crate serde_json;
 extern crate semver;
+extern crate time;
+extern crate url;
 
 #[cfg(feature = "serde_macros")]
 include!("lib.rs.in");

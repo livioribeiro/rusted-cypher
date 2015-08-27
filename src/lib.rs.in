@@ -1,4 +1,5 @@
 pub mod cypher;
+pub mod transaction;
 pub mod graph;
 pub mod error;
 
