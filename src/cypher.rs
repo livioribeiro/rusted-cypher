@@ -61,8 +61,8 @@ pub struct Cypher {
 impl Cypher {
     /// Creates a new Cypher
     ///
-    /// Its arguments are the cypher transaction endpoint, a hyper client and the HTTP headers
-    /// containing HTTP Basic Authentication, if needed.
+    /// Its arguments are the cypher transaction endpoint and the HTTP headers containing HTTP
+    /// Basic Authentication, if needed.
     pub fn new(endpoint: Url, headers: Headers) -> Self {
         Cypher {
             endpoint: endpoint,
