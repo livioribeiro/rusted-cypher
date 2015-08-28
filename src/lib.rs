@@ -5,10 +5,8 @@
 //!
 //! This is a prototype for accessing the cypher endpoint of a neo4j server, like a sql
 //! driver for a relational database.
-//!
-//! The main goal of this project is to provide a way to send cypher queries to a neo4j server and
-//! retrieve the results.
-//! The second goal is to manage transactions through the transaction endpoint.
+//! 
+//! You can execute queries inside a transaction or simply execute queries that commit immediately.
 //!
 //! It MAY be extended to support other resources of the neo4j REST api.
 //!
