@@ -64,7 +64,7 @@
 //!     &params
 //! );
 //!
-//! transaction.query(vec![stmt]).unwrap();
+//! transaction.exec(vec![stmt]).unwrap();
 //!
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", true);
@@ -73,7 +73,7 @@
 //!     "MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n",
 //!     &params
 //! );
-//! let results = transaction.query(vec![stmt]).unwrap();
+//! let results = transaction.exec(vec![stmt]).unwrap();
 //!
 //! assert_eq!(results[0].data.len(), 2);
 //!

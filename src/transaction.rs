@@ -26,7 +26,7 @@
 //! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 //!
 //! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n", &params);
-//! let results = transaction.query(vec![stmt]).unwrap();
+//! let results = transaction.exec(vec![stmt]).unwrap();
 //! assert_eq!(results[0].data.len(), 1);
 //!
 //! transaction.rollback().unwrap();
@@ -175,7 +175,7 @@ impl<'a> Transaction<'a> {
         Ok(())
     }
 
-    pub fn query(&mut self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
+    pub fn exec(&mut self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
         let mut res = try!(send_query(&self.client, &self.transaction, self.headers, statements));
         let result: QueryResult = try!(parse_response(&mut res));
 
@@ -269,7 +269,7 @@ mod tests {
         let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
 
         let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n", &params);
-        let results = transaction.query(vec![stmt]).unwrap();
+        let results = transaction.exec(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 
