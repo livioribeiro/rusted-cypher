@@ -5,7 +5,7 @@ use serde_json::{self, Value};
 use time::{self, Tm};
 
 use super::cypher::{CypherResult, Statement};
-use super::error::{GraphError, Neo4jError, TransactionError};
+use super::error::{GraphError, Neo4jError};
 
 const DATETIME_RFC822: &'static str = "%a, %d %b %Y %T %Z";
 
@@ -23,9 +23,15 @@ struct QueryResult {
 }
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct CommitResult {
     results: Vec<CypherResult>,
+    errors: Vec<Neo4jError>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct RollbackResult {
+    results: [usize; 0],
     errors: Vec<Neo4jError>,
 }
 
@@ -87,21 +93,7 @@ impl<'a> Transaction<'a> {
         Ok((transaction, result.results))
     }
 
-    pub fn is_expired(&self) -> bool {
-        self.expires < time::now_utc()
-    }
-
-    fn assert_transaction_not_expired(&self) -> Result<(), GraphError> {
-        if self.is_expired() {
-            let error = TransactionError("Expired Transaction".to_owned());
-            return Err(GraphError::new_error(Box::new(error)));
-        }
-        Ok(())
-    }
-
     pub fn commit(self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        try!(self.assert_transaction_not_expired());
-
         let mut json = BTreeMap::new();
         json.insert("statements", statements);
         let json = try!(serde_json::to_string(&json));
@@ -123,13 +115,11 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn rollback(self) -> Result<(), GraphError> {
-        try!(self.assert_transaction_not_expired());
-
         let req = self.client.delete(&self.transaction).headers(self.headers.clone());
         let mut res = try!(req.send());
 
         let result: Value = try!(serde_json::de::from_reader(&mut res));
-        let result = try!(serde_json::value::from_value::<CommitResult>(result));
+        let result = try!(serde_json::value::from_value::<RollbackResult>(result));
 
         if result.errors.len() > 0 {
             return Err(GraphError::new_neo4j_error(result.errors))
@@ -139,8 +129,6 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn query(&mut self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        try!(self.assert_transaction_not_expired());
-
         let (result, _) = try!(send_query(&self.client, &self.commit, self.headers, statements));
 
         let mut expires = result.transaction.expires;
@@ -188,23 +176,40 @@ mod tests {
     }
 
     #[test]
-    fn create_node_on_begin_transaction_and_commit() {
+    fn create_node_and_commit() {
         let headers = get_headers();
         let params: BTreeMap<String, String> = BTreeMap::new();
 
-        let stmt = Statement::new("create (n:TRANSACTION_1 { name: 'Rust', safe: true })", &params);
+        let stmt = Statement::new("create (n:CREATE_COMMIT { name: 'Rust', safe: true })", &params);
 
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::new("match (n:TRANSACTION_1) return n", &params);
+        let stmt = Statement::new("match (n:CREATE_COMMIT) return n", &params);
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::new("match (n:TRANSACTION_1) delete n", &params);
+        let stmt = Statement::new("match (n:CREATE_COMMIT) delete n", &params);
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        transaction.commit(vec![]).unwrap();
+    }
+
+    #[test]
+    fn create_node_and_rollback() {
+        let headers = get_headers();
+        let params: BTreeMap<String, String> = BTreeMap::new();
+
+        let stmt = Statement::new("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })", &params);
+
+        let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        transaction.rollback().unwrap();
+
+        let stmt = Statement::new("match (n:CREATE_ROLLBACK) return n", &params);
+        let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+
+        assert_eq!(results[0].data.len(), 0);
         transaction.commit(vec![]).unwrap();
     }
 }
