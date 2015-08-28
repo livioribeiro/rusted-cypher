@@ -8,22 +8,22 @@
 //! ```
 //! # extern crate hyper;
 //! # extern crate rusted_cypher;
-//! # fn main() {
 //! # use std::collections::BTreeMap;
 //! # use hyper::Url;
 //! # use hyper::header::{Authorization, Basic, ContentType, Headers};
 //! # use rusted_cypher::cypher::Cypher;
-//! let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-//!
-//! let mut headers = Headers::new();
-//! headers.set(Authorization(
-//!     Basic {
-//!         username: "neo4j".to_owned(),
-//!         password: Some("neo4j".to_owned()),
-//!     }
-//! ));
-//!
-//! headers.set(ContentType::json());
+//! # fn main() {
+//! # let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+//! #
+//! # let mut headers = Headers::new();
+//! # headers.set(Authorization(
+//! #     Basic {
+//! #         username: "neo4j".to_owned(),
+//! #         password: Some("neo4j".to_owned()),
+//! #     }
+//! # ));
+//! #
+//! # headers.set(ContentType::json());
 //!
 //! let cypher = Cypher::new(url, headers);
 //!

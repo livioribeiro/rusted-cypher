@@ -1,6 +1,43 @@
+//! Transaction management through neo4j's transaction endpoint
+//!
+//! # Examples
+//!
+//! ```
+//! # extern crate hyper;
+//! # extern crate rusted_cypher;
+//! # use std::collections::BTreeMap;
+//! # use hyper::Url;
+//! # use hyper::header::{Authorization, Basic, ContentType, Headers};
+//! # use rusted_cypher::Statement;
+//! # use rusted_cypher::transaction::Transaction;
+//! # fn main() {
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data/transaction";
+//! # let mut headers = Headers::new();
+//! # headers.set(Authorization(
+//! #     Basic {
+//! #         username: "neo4j".to_owned(),
+//! #         password: Some("neo4j".to_owned()),
+//! #     }
+//! # ));
+//! # headers.set(ContentType::json());
+//! let params: BTreeMap<String, String> = BTreeMap::new();
+//! let stmt = Statement::new("CREATE (n:TRANSACTION)", &params);
+//!
+//! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+//!
+//! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n", &params);
+//! let results = transaction.query(vec![stmt]).unwrap();
+//! assert_eq!(results[0].data.len(), 1);
+//!
+//! transaction.rollback().unwrap();
+//! # }
+//! ```
+
 use std::collections::BTreeMap;
 use hyper::Client;
+use hyper::client::response::Response;
 use hyper::header::{Headers, Location};
+use serde::Deserialize;
 use serde_json::{self, Value};
 use time::{self, Tm};
 
@@ -14,6 +51,11 @@ struct TransactionInfo {
     expires: String,
 }
 
+trait ResultTrait {
+    fn results(&self) -> &Vec<CypherResult>;
+    fn errors(&self) -> &Vec<Neo4jError>;
+}
+
 #[derive(Debug, Deserialize)]
 struct QueryResult {
     commit: String,
@@ -22,17 +64,31 @@ struct QueryResult {
     errors: Vec<Neo4jError>,
 }
 
+impl ResultTrait for QueryResult {
+    fn results(&self) -> &Vec<CypherResult> {
+        &self.results
+    }
+
+    fn errors(&self) -> &Vec<Neo4jError> {
+        &self.errors
+    }
+}
+
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct CommitResult {
     results: Vec<CypherResult>,
     errors: Vec<Neo4jError>,
 }
 
-#[derive(Deserialize)]
-#[allow(dead_code)]
-struct RollbackResult {
-    results: [usize; 0],
-    errors: Vec<Neo4jError>,
+impl ResultTrait for CommitResult {
+    fn results(&self) -> &Vec<CypherResult> {
+        &self.results
+    }
+
+    fn errors(&self) -> &Vec<Neo4jError> {
+        &self.errors
+    }
 }
 
 pub struct Transaction<'a> {
@@ -44,7 +100,7 @@ pub struct Transaction<'a> {
 }
 
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
-    -> Result<(QueryResult, String), GraphError> {
+    -> Result<Response, GraphError> {
 
     let mut json = BTreeMap::new();
     json.insert("statements", statements);
@@ -54,21 +110,20 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
         .headers(headers.clone())
         .body(&json);
 
-    let mut res = try!(req.send());
+    let res = try!(req.send());
+    Ok(res)
+}
 
-    let result: Value = try!(serde_json::de::from_reader(&mut res));
-    let result = try!(serde_json::value::from_value::<QueryResult>(result));
+fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
+    let mut res = res;
+    let value: Value = try!(serde_json::de::from_reader(&mut res));
+    let result = try!(serde_json::value::from_value::<T>(value.clone()));
 
-    if result.errors.len() > 0 {
-        return Err(GraphError::new_neo4j_error(result.errors))
+    if result.errors().len() > 0 {
+        return Err(GraphError::new_neo4j_error(result.errors().clone()));
     }
 
-    let transaction = match res.headers.get::<Location>() {
-        Some(location) => location.0.to_owned(),
-        None => "".to_owned()
-    };
-
-    Ok((result, transaction))
+    Ok(result)
 }
 
 impl<'a> Transaction<'a> {
@@ -77,7 +132,13 @@ impl<'a> Transaction<'a> {
 
         let client = Client::new();
 
-        let (result, transaction) = try!(send_query(&client, endpoint, headers, statements));
+        let mut res = try!(send_query(&client, endpoint, headers, statements));
+        let result: QueryResult = try!(parse_response(&mut res));
+
+        let transaction = match res.headers.get::<Location>() {
+            Some(location) => location.0.to_owned(),
+            None => return Err(GraphError::new("No transaction URI returned from server")),
+        };
 
         let mut expires = result.transaction.expires;
         let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
@@ -93,23 +154,14 @@ impl<'a> Transaction<'a> {
         Ok((transaction, result.results))
     }
 
+    pub fn get_expires(&self) -> &Tm {
+        &self.expires
+    }
+
     pub fn commit(self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        let mut json = BTreeMap::new();
-        json.insert("statements", statements);
-        let json = try!(serde_json::to_string(&json));
+        let mut res = try!(send_query(&self.client, &self.commit, self.headers, statements));
 
-        let req = self.client.post(&self.commit)
-            .headers(self.headers.clone())
-            .body(&json);
-
-        let mut res = try!(req.send());
-
-        let result: Value = try!(serde_json::de::from_reader(&mut res));
-        let result = try!(serde_json::value::from_value::<CommitResult>(result));
-
-        if result.errors.len() > 0 {
-            return Err(GraphError::new_neo4j_error(result.errors))
-        }
+        let result: CommitResult = try!(parse_response(&mut res));
 
         Ok(result.results)
     }
@@ -118,18 +170,14 @@ impl<'a> Transaction<'a> {
         let req = self.client.delete(&self.transaction).headers(self.headers.clone());
         let mut res = try!(req.send());
 
-        let result: Value = try!(serde_json::de::from_reader(&mut res));
-        let result = try!(serde_json::value::from_value::<RollbackResult>(result));
-
-        if result.errors.len() > 0 {
-            return Err(GraphError::new_neo4j_error(result.errors))
-        }
+        try!(parse_response::<CommitResult>(&mut res));
 
         Ok(())
     }
 
     pub fn query(&mut self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        let (result, _) = try!(send_query(&self.client, &self.commit, self.headers, statements));
+        let mut res = try!(send_query(&self.client, &self.transaction, self.headers, statements));
+        let result: QueryResult = try!(parse_response(&mut res));
 
         let mut expires = result.transaction.expires;
         let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
