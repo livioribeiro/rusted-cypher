@@ -56,27 +56,6 @@ impl Error for GraphError {
     }
 }
 
-#[derive(Debug)]
-pub struct TransactionError(pub String);
-
-impl fmt::Display for TransactionError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for TransactionError {
-    fn description(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<TransactionError> for GraphError {
-    fn from(error: TransactionError) -> Self {
-        GraphError::new_error(Box::new(error))
-    }
-}
-
 impl From<FromUtf8Error> for GraphError {
     fn from(error: FromUtf8Error) -> Self {
         GraphError::new_error(Box::new(error))
