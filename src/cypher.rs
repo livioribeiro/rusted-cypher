@@ -47,6 +47,7 @@ use serde::Serialize;
 use serde_json::{self, Value};
 
 use super::error::{GraphError, Neo4jError};
+use super::transaction::Transaction;
 
 /// Represents the cypher endpoint of a neo4j server
 ///
@@ -126,6 +127,10 @@ impl Cypher {
         query.add_statement(Statement::new(statement, parameters));
 
         query.send()
+    }
+
+    pub fn begin_transaction(&self, statements: Vec<Statement>) -> Result<(Transaction, Vec<CypherResult>), GraphError> {
+        Transaction::begin(&format!("{}", &self.endpoint), &self.headers, statements)
     }
 }
 
@@ -252,6 +257,7 @@ struct QueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn get_cypher() -> Cypher {
         use hyper::Url;
@@ -312,5 +318,22 @@ mod tests {
         let mut query = cypher.query();
         query.add_simple_statement("match (n:TEST_ITER) delete n");
         query.send().unwrap();
+    }
+
+    #[test]
+    fn transaction() {
+        let cypher = get_cypher();
+        let params: BTreeMap<String, String> = BTreeMap::new();
+
+        let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n", &params);
+        let (transaction, results) = cypher.begin_transaction(vec![stmt]).unwrap();
+
+        assert_eq!(results[0].data.len(), 1);
+
+        transaction.commit(vec![]).unwrap();
+
+        let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n", &params);
+        let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
+        transaction.commit(vec![]).unwrap();
     }
 }

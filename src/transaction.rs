@@ -260,4 +260,19 @@ mod tests {
         assert_eq!(results[0].data.len(), 0);
         transaction.commit(vec![]).unwrap();
     }
+
+    #[test]
+    fn query_open_transaction() {
+        let headers = get_headers();
+        let params: BTreeMap<String, String> = BTreeMap::new();
+
+        let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
+
+        let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n", &params);
+        let results = transaction.query(vec![stmt]).unwrap();
+
+        assert_eq!(results[0].data.len(), 1);
+
+        transaction.rollback().unwrap();
+    }
 }
