@@ -6,7 +6,7 @@ description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
 homepage = "https://github.com/livioribeiro/rusted-cypher"
 readme = "README.md"
-keywords = ["neo4j", "database", "query", "cypher", "graph", "transaction"]
+keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT"
 build = "build.rs"
 
