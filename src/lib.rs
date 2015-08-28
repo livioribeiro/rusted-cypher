@@ -19,18 +19,27 @@
 //! use rusted_cypher::GraphClient;
 //! use rusted_cypher::cypher::Statement;
 //!
-//! let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+//! let graph = GraphClient::connect(
+//!     "http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //!
+//! // Without transactions
 //! let mut query = graph.cypher().query();
-//! query.add_simple_statement("CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
+//! query.add_simple_statement(
+//!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", false);
-//! query.add_statement(Statement::new("CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })", &params));
+//! query.add_statement(
+//!     Statement::new(
+//!         "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
+//!          &params
+//!     )
+//! );
 //!
 //! query.send().unwrap();
 //!
-//! graph.cypher().exec("CREATE (n:LANG { name: 'Python', level: 'High', safe: true })").unwrap();
+//! graph.cypher().exec(
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })").unwrap();
 //!
 //! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n").unwrap();
 //!
@@ -39,6 +48,36 @@
 //! }
 //!
 //! graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
+//!
+//! // With transactions
+//! let params: BTreeMap<String, String> = BTreeMap::new();
+//! let stmt = Statement::new(
+//!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })",
+//!     &params
+//! );
+//!
+//! let (mut transaction, results)
+//!     = graph.cypher().begin_transaction(vec![stmt]).unwrap();
+//!
+//! let stmt = Statement::new(
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })",
+//!     &params
+//! );
+//!
+//! transaction.query(vec![stmt]).unwrap();
+//!
+//! let mut params = BTreeMap::new();
+//! params.insert("safeness", true);
+//!
+//! let stmt = Statement::new(
+//!     "MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n",
+//!     &params
+//! );
+//! let results = transaction.query(vec![stmt]).unwrap();
+//!
+//! assert_eq!(results[0].data.len(), 2);
+//!
+//! transaction.rollback();
 //! ```
 
 extern crate hyper;
