@@ -9,7 +9,7 @@
 //! # use hyper::Url;
 //! # use hyper::header::{Authorization, Basic, ContentType, Headers};
 //! # use rusted_cypher::Statement;
-//! # use rusted_cypher::transaction::Transaction;
+//! # use rusted_cypher::cypher::Transaction;
 //! # fn main() {
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data/transaction";
 //! # let mut headers = Headers::new();
@@ -41,8 +41,9 @@ use serde::Deserialize;
 use serde_json::{self, Value};
 use time::{self, Tm};
 
-use super::cypher::{CypherResult, Statement};
-use super::error::{GraphError, Neo4jError};
+use ::error::{GraphError, Neo4jError};
+use super::cypher::CypherResult;
+use super::statement::Statement;
 
 const DATETIME_RFC822: &'static str = "%a, %d %b %Y %T %Z";
 

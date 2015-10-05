@@ -1,44 +1,5 @@
-//! Provides structs used to interact with the cypher transaction endpoint
-//!
-//! The types declared in this module, save for `Statement`, don't need to be instantiated
-//! directly, since they can be obtained from the `GraphClient`
-//!
-//! # Examples
-//!
-//! ```
-//! # extern crate hyper;
-//! # extern crate rusted_cypher;
-//! # use std::collections::BTreeMap;
-//! # use hyper::Url;
-//! # use hyper::header::{Authorization, Basic, ContentType, Headers};
-//! # use rusted_cypher::cypher::Cypher;
-//! # fn main() {
-//! # let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-//! #
-//! # let mut headers = Headers::new();
-//! # headers.set(Authorization(
-//! #     Basic {
-//! #         username: "neo4j".to_owned(),
-//! #         password: Some("neo4j".to_owned()),
-//! #     }
-//! # ));
-//! #
-//! # headers.set(ContentType::json());
-//!
-//! let cypher = Cypher::new(url, headers);
-//!
-//! let mut query = cypher.query();
-//! query.add_simple_statement("match n return n");
-//!
-//! let result = query.send().unwrap();
-//!
-//! for row in result.iter() {
-//!     println!("{:?}", row);
-//! }
-//! # }
-//! ```
-
 use std::borrow::Borrow;
+use std::convert::From;
 use std::collections::BTreeMap;
 use std::error::Error;
 use hyper::{Client, Url};
@@ -46,8 +7,9 @@ use hyper::header::Headers;
 use serde::Serialize;
 use serde_json::{self, Value};
 
-use super::error::{GraphError, Neo4jError};
+use ::error::{GraphError, Neo4jError};
 use super::transaction::Transaction;
+use super::statement::Statement;
 
 /// Represents the cypher endpoint of a neo4j server
 ///
@@ -147,10 +109,7 @@ pub struct CypherQuery<'a> {
 
 impl<'a> CypherQuery<'a> {
     pub fn add_simple_statement(&mut self, statement: &str) {
-        self.statements.push(Statement {
-            statement: statement.to_owned(),
-            parameters: Value::Null,
-        });
+        self.statements.push(From::from(statement));
     }
 
     pub fn add_statement(&mut self, statement: Statement) {
@@ -190,23 +149,6 @@ impl<'a> CypherQuery<'a> {
                 return Ok(result.results);
             }
             Err(e) => return Err(GraphError::new_error(Box::new(e)))
-        }
-    }
-}
-
-#[derive(Serialize)]
-pub struct Statement {
-    statement: String,
-    parameters: Value,
-}
-
-impl Statement  {
-    pub fn new<K, V>(statement: &str, parameters: &BTreeMap<K, V>) -> Self
-        where K: Borrow<str> + Ord + Serialize, V: Serialize {
-
-        Statement {
-            statement: statement.to_owned(),
-            parameters: serde_json::value::to_value(parameters),
         }
     }
 }
@@ -257,7 +199,6 @@ struct QueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     fn get_cypher() -> Cypher {
         use hyper::Url;
@@ -282,7 +223,7 @@ mod tests {
         let cypher = get_cypher();
         let mut query = cypher.query();
 
-        query.add_simple_statement("match n return n");
+        query.add_statement(From::from("match n return n"));
 
         let result = query.send().unwrap();
 
@@ -295,13 +236,13 @@ mod tests {
         let cypher = get_cypher();
         let mut query = cypher.query();
 
-        query.add_simple_statement(
-            "create (n:TEST_ITER {name: 'Test', lastname: 'Iter'}), (m:TEST_ITER {name: 'Test', lastname: 'Iter'})");
+        query.add_statement(From::from(
+            "create (n:TEST_ITER {name: 'Test', lastname: 'Iter'}), (m:TEST_ITER {name: 'Test', lastname: 'Iter'})"));
 
         query.send().unwrap();
 
         let mut query = cypher.query();
-        query.add_simple_statement("match (n:TEST_ITER) return n");
+        query.add_statement(From::from("match (n:TEST_ITER) return n"));
 
         let result = query.send().unwrap();
 
@@ -316,23 +257,25 @@ mod tests {
         }
 
         let mut query = cypher.query();
-        query.add_simple_statement("match (n:TEST_ITER) delete n");
+        query.add_statement(From::from("match (n:TEST_ITER) delete n"));
         query.send().unwrap();
     }
 
     #[test]
     fn transaction() {
         let cypher = get_cypher();
-        let params: BTreeMap<String, String> = BTreeMap::new();
+        // let params: BTreeMap<String, String> = BTreeMap::new();
 
-        let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n", &params);
+        // let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n", &params);
+        let stmt = From::from("create (n:CYPHER_TRANSACTION) return n");
         let (transaction, results) = cypher.begin_transaction(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n", &params);
+        // let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n", &params);
+        let stmt = From::from("match (n:CYPHER_TRANSACTION) delete n");
         let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
     }
