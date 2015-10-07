@@ -20,12 +20,10 @@
 //! #     }
 //! # ));
 //! # headers.set(ContentType::json());
-//! let params: BTreeMap<String, String> = BTreeMap::new();
-//! let stmt = Statement::new("CREATE (n:TRANSACTION)", &params);
-//!
+//! let stmt = Statement::from("CREATE (n:TRANSACTION)");
 //! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 //!
-//! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n", &params);
+//! let stmt = Statement::from("MATCH (n:TRANSACTION) RETURN n");
 //! let results = transaction.exec(vec![stmt]).unwrap();
 //! assert_eq!(results[0].data.len(), 1);
 //!
@@ -198,7 +196,6 @@ impl<'a> Transaction<'a> {
 mod tests {
     use super::*;
     use ::Statement;
-    use std::collections::BTreeMap;
     use hyper::header::{Authorization, Basic, ContentType, Headers};
 
     const URL: &'static str = "http:neo4j:neo4j@localhost:7474/db/data/transaction";
@@ -227,20 +224,18 @@ mod tests {
     #[test]
     fn create_node_and_commit() {
         let headers = get_headers();
-        let params: BTreeMap<String, String> = BTreeMap::new();
 
-        let stmt = Statement::new("create (n:CREATE_COMMIT { name: 'Rust', safe: true })", &params);
-
+        let stmt = Statement::from("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_COMMIT) return n", &params);
+        let stmt = Statement::from("match (n:CREATE_COMMIT) return n");
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_COMMIT) delete n", &params);
+        let stmt = Statement::from("match (n:CREATE_COMMIT) delete n");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
     }
@@ -248,14 +243,12 @@ mod tests {
     #[test]
     fn create_node_and_rollback() {
         let headers = get_headers();
-        let params: BTreeMap<String, String> = BTreeMap::new();
 
-        let stmt = Statement::new("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })", &params);
-
+        let stmt = Statement::from("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.rollback().unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_ROLLBACK) return n", &params);
+        let stmt = Statement::from("match (n:CREATE_ROLLBACK) return n");
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 0);
@@ -265,11 +258,10 @@ mod tests {
     #[test]
     fn query_open_transaction() {
         let headers = get_headers();
-        let params: BTreeMap<String, String> = BTreeMap::new();
 
         let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
 
-        let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n", &params);
+        let stmt = Statement::from("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n");
         let results = transaction.exec(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);

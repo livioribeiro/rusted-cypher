@@ -23,7 +23,7 @@ impl Statement  {
 }
 
 impl<'a> From<&'a str> for Statement {
-    fn from(val: &'a str) -> Self {
+    fn from(val: &str) -> Self {
         Statement {
             statement: val.to_owned(),
             parameters: Value::Null,
@@ -31,11 +31,12 @@ impl<'a> From<&'a str> for Statement {
     }
 }
 
-impl<'a, P: Serialize> From<(&'a str, P)> for Statement {
-    fn from(val: (&'a str, P)) -> Self {
+impl<'a, 'b, K, V> From<(&'a str, &'b BTreeMap<K, V>)> for Statement
+        where K: Borrow<str> + Ord + Serialize, V: Serialize {
+    fn from(val: (&str, &BTreeMap<K, V>)) -> Self {
         Statement {
             statement: val.0.to_owned(),
-            parameters: serde_json::value::to_value(&val.1),
+            parameters: serde_json::value::to_value(val.1),
         }
     }
 }
@@ -48,5 +49,25 @@ impl FromStr for Statement {
             statement: s.to_owned(),
             parameters: Value::Null,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::From;
+    use std::collections::BTreeMap;
+    use super::*;
+
+    #[test]
+    #[allow(unused_variables)]
+    fn from_str() {
+        let stmt = Statement::from("match n return n");
+    }
+
+    #[test]
+    #[allow(unused_variables)]
+    fn from_tuple() {
+        let params: BTreeMap<String, String> = BTreeMap::new();
+        let stmt = Statement::from(("match n return n", &params));
     }
 }

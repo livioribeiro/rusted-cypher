@@ -5,7 +5,7 @@
 //!
 //! This is a prototype for accessing the cypher endpoint of a neo4j server, like a sql
 //! driver for a relational database.
-//! 
+//!
 //! You can execute queries inside a transaction or simply execute queries that commit immediately.
 //!
 //! It MAY be extended to support other resources of the neo4j REST api.
@@ -27,17 +27,16 @@
 //!
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", false);
-//! query.add_statement(
-//!     Statement::new(
-//!         "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
-//!          &params
-//!     )
-//! );
+//! query.add_statement((
+//!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
+//!     &params
+//! ));
 //!
 //! query.send().unwrap();
 //!
 //! graph.cypher().exec(
-//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })").unwrap();
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
+//! ).unwrap();
 //!
 //! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n").unwrap();
 //!
@@ -48,20 +47,14 @@
 //! graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
 //!
 //! // With transactions
-//! let params: BTreeMap<String, String> = BTreeMap::new();
-//! let stmt = Statement::new(
-//!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })",
-//!     &params
-//! );
+//! let stmt = Statement::from(
+//!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
 //! let (mut transaction, results)
 //!     = graph.cypher().begin_transaction(vec![stmt]).unwrap();
 //!
-//! let stmt = Statement::new(
-//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })",
-//!     &params
-//! );
-//!
+//! let stmt = Statement::from(
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
 //! transaction.exec(vec![stmt]).unwrap();
 //!
 //! let mut params = BTreeMap::new();
@@ -71,6 +64,7 @@
 //!     "MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n",
 //!     &params
 //! );
+//!
 //! let results = transaction.exec(vec![stmt]).unwrap();
 //!
 //! assert_eq!(results[0].data.len(), 2);

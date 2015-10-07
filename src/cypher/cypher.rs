@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::convert::From;
+use std::convert::{From, Into};
 use std::collections::BTreeMap;
 use std::error::Error;
 use hyper::{Client, Url};
@@ -86,7 +86,7 @@ impl Cypher {
             where K: Borrow<str> + Ord + Serialize, V: Serialize {
 
         let mut query = self.query();
-        query.add_statement(Statement::new(statement, parameters));
+        query.add_statement((statement, parameters));
 
         query.send()
     }
@@ -108,12 +108,18 @@ pub struct CypherQuery<'a> {
 }
 
 impl<'a> CypherQuery<'a> {
+    /// Do not use. use add_statement instead.
     pub fn add_simple_statement(&mut self, statement: &str) {
         self.statements.push(From::from(statement));
     }
 
-    pub fn add_statement(&mut self, statement: Statement) {
-        self.statements.push(statement);
+    /// Adds a statement to the query
+    ///
+    /// The statement can be anything that implements Into<Statement>,
+    /// currently &str and (&str, &BTreeMap<String, Value>).
+    /// Statement itself already implements Into<Statement>.
+    pub fn add_statement<T: Into<Statement>>(&mut self, statement: T) {
+        self.statements.push(statement.into());
     }
 
     pub fn set_statements(&mut self, statements: Vec<Statement>) {
@@ -198,7 +204,9 @@ struct QueryResult {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::From;
     use super::*;
+    use ::cypher::statement::Statement;
 
     fn get_cypher() -> Cypher {
         use hyper::Url;
@@ -223,7 +231,7 @@ mod tests {
         let cypher = get_cypher();
         let mut query = cypher.query();
 
-        query.add_statement(From::from("match n return n"));
+        query.add_statement("match n return n");
 
         let result = query.send().unwrap();
 
@@ -236,13 +244,13 @@ mod tests {
         let cypher = get_cypher();
         let mut query = cypher.query();
 
-        query.add_statement(From::from(
-            "create (n:TEST_ITER {name: 'Test', lastname: 'Iter'}), (m:TEST_ITER {name: 'Test', lastname: 'Iter'})"));
+        query.add_statement(
+            "create (n:TEST_ITER {name: 'Test', lastname: 'Iter'}), (m:TEST_ITER {name: 'Test', lastname: 'Iter'})");
 
         query.send().unwrap();
 
         let mut query = cypher.query();
-        query.add_statement(From::from("match (n:TEST_ITER) return n"));
+        query.add_statement("match (n:TEST_ITER) return n");
 
         let result = query.send().unwrap();
 
@@ -257,25 +265,22 @@ mod tests {
         }
 
         let mut query = cypher.query();
-        query.add_statement(From::from("match (n:TEST_ITER) delete n"));
+        query.add_statement("match (n:TEST_ITER) delete n");
         query.send().unwrap();
     }
 
     #[test]
     fn transaction() {
         let cypher = get_cypher();
-        // let params: BTreeMap<String, String> = BTreeMap::new();
 
-        // let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n", &params);
-        let stmt = From::from("create (n:CYPHER_TRANSACTION) return n");
+        let stmt = Statement::from("create (n:CYPHER_TRANSACTION) return n");
         let (transaction, results) = cypher.begin_transaction(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 
         transaction.commit(vec![]).unwrap();
 
-        // let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n", &params);
-        let stmt = From::from("match (n:CYPHER_TRANSACTION) delete n");
+        let stmt = Statement::from("match (n:CYPHER_TRANSACTION) delete n");
         let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
     }

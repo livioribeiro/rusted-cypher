@@ -28,17 +28,16 @@ fn main() {
 
     let mut params = BTreeMap::new();
     params.insert("safeness", false);
-    query.add_statement(
-        Statement::new(
-            "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
-             &params
-        )
-    );
+    query.add_statement((
+        "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
+         &params
+    ));
 
     query.send().unwrap();
 
     graph.cypher().exec(
-        "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })").unwrap();
+        "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
+    ).unwrap();
 
     let result = graph.cypher().exec("MATCH (n:LANG) RETURN n").unwrap();
 
