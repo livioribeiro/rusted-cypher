@@ -1,10 +1,8 @@
-use std::borrow::Borrow;
-use std::convert::{From, Into};
+use std::convert::Into;
 use std::collections::BTreeMap;
 use std::error::Error;
 use hyper::{Client, Url};
 use hyper::header::Headers;
-use serde::Serialize;
 use serde_json::{self, Value};
 
 use ::error::{GraphError, Neo4jError};
@@ -52,6 +50,8 @@ impl Cypher {
 
     /// Executes a cypher query
     ///
+    /// Parameter can be anything that implements `Into<Statement>`, `&str` or or `Statement` itself
+    ///
     /// # Examples
     ///
     /// ```
@@ -63,30 +63,9 @@ impl Cypher {
     /// # assert_eq!(result[0].columns.len(), 1);
     /// # assert_eq!(result[0].columns[0], "n");
     /// ```
-    pub fn exec(&self, statement: &str) -> Result<Vec<CypherResult>, GraphError> {
-        self.exec_params(statement, &BTreeMap::<String, Value>::new())
-    }
-
-    /// Executes a cypher query with parameters
-    ///
-    /// ```
-    /// # use std::collections::BTreeMap;
-    /// # use rusted_cypher::GraphClient;
-    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-    /// # let cypher = graph.cypher();
-    /// let mut params = BTreeMap::new();
-    /// params.insert("name", "Rust Language");
-    /// let result = cypher.exec_params("match (n {name: {name}}) return n", &params);
-    /// # let result = result.unwrap();
-    /// # assert_eq!(result[0].columns.len(), 1);
-    /// # assert_eq!(result[0].columns[0], "n");
-    /// ```
-    pub fn exec_params<K, V>(&self, statement: &str, parameters: &BTreeMap<K ,V>)
-            -> Result<Vec<CypherResult>, GraphError>
-            where K: Borrow<str> + Ord + Serialize, V: Serialize {
-
+    pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<Vec<CypherResult>, GraphError> {
         let mut query = self.query();
-        query.add_statement((statement, parameters));
+        query.add_statement(statement);
 
         query.send()
     }
@@ -108,11 +87,6 @@ pub struct CypherQuery<'a> {
 }
 
 impl<'a> CypherQuery<'a> {
-    /// Do not use. use add_statement instead.
-    pub fn add_simple_statement(&mut self, statement: &str) {
-        self.statements.push(From::from(statement));
-    }
-
     /// Adds a statement to the query
     ///
     /// The statement can be anything that implements Into<Statement>,
@@ -204,7 +178,6 @@ struct QueryResult {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::From;
     use super::*;
     use ::cypher::statement::Statement;
 
@@ -273,14 +246,14 @@ mod tests {
     fn transaction() {
         let cypher = get_cypher();
 
-        let stmt = Statement::from("create (n:CYPHER_TRANSACTION) return n");
+        let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n");
         let (transaction, results) = cypher.begin_transaction(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::from("match (n:CYPHER_TRANSACTION) delete n");
+        let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n");
         let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
     }

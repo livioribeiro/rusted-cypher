@@ -37,14 +37,11 @@ let mut query = graph.cypher().query();
 query.add_statement(
     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 
-let mut params = BTreeMap::new();
-params.insert("safeness", false);
+let mut statement = Statement::new(
+  "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })");
+statement.add_param("safeness", true);
 
-// Statement also implements From<(&str, &BTreeMap<String, Value)>
-query.add_statement((
-    "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
-     &params
-));
+query.add_statement(statement);
 
 query.send().unwrap();
 
@@ -64,24 +61,19 @@ graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
 ### With Transactions
 
 ```rust
-let stmt = Statement::from(
+let stmt = Statement::new(
     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 
 let (mut transaction, results)
     = graph.cypher().begin_transaction(vec![stmt]).unwrap();
 
-let stmt = Statement::from(
+let stmt = Statement::new(
     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
 
 transaction.exec(vec![stmt]).unwrap();
 
-let mut params = BTreeMap::new();
-params.insert("safeness", true);
-
-let stmt = Statement::new(
-    "MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n",
-    &params
-);
+let mut stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n");
+stmt.add_param("safeness", true);
 
 let results = transaction.exec(vec![stmt]).unwrap();
 

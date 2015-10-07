@@ -20,10 +20,10 @@
 //! #     }
 //! # ));
 //! # headers.set(ContentType::json());
-//! let stmt = Statement::from("CREATE (n:TRANSACTION)");
+//! let stmt = Statement::new("CREATE (n:TRANSACTION)");
 //! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 //!
-//! let stmt = Statement::from("MATCH (n:TRANSACTION) RETURN n");
+//! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n");
 //! let results = transaction.exec(vec![stmt]).unwrap();
 //! assert_eq!(results[0].data.len(), 1);
 //!
@@ -225,17 +225,17 @@ mod tests {
     fn create_node_and_commit() {
         let headers = get_headers();
 
-        let stmt = Statement::from("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
+        let stmt = Statement::new("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::from("match (n:CREATE_COMMIT) return n");
+        let stmt = Statement::new("match (n:CREATE_COMMIT) return n");
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
         transaction.commit(vec![]).unwrap();
 
-        let stmt = Statement::from("match (n:CREATE_COMMIT) delete n");
+        let stmt = Statement::new("match (n:CREATE_COMMIT) delete n");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.commit(vec![]).unwrap();
     }
@@ -244,11 +244,11 @@ mod tests {
     fn create_node_and_rollback() {
         let headers = get_headers();
 
-        let stmt = Statement::from("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
+        let stmt = Statement::new("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
         transaction.rollback().unwrap();
 
-        let stmt = Statement::from("match (n:CREATE_ROLLBACK) return n");
+        let stmt = Statement::new("match (n:CREATE_ROLLBACK) return n");
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 0);
@@ -261,7 +261,7 @@ mod tests {
 
         let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
 
-        let stmt = Statement::from("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n");
+        let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n");
         let results = transaction.exec(vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);

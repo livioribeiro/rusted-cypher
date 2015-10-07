@@ -117,8 +117,8 @@ impl GraphClient {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use super::*;
+    use ::cypher::statement::Statement;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 
@@ -141,15 +141,48 @@ mod tests {
     }
 
     #[test]
-    fn cypher_query_with_params() {
+    fn cypher_query_with_string_param() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let mut params = BTreeMap::new();
-        params.insert("name", "Neo");
+        let statement = {
+            let mut statement = Statement::new("match (n {name: {name}}) return n");
+            statement.add_param("name", "Neo");
+            statement
+        };
 
-        let result = graph.cypher().exec_params(
-            "match (n {name: {name}}) return n", &params
-        ).unwrap();
+        let result = graph.cypher().exec(statement).unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn cypher_query_with_int_param() {
+        let graph = GraphClient::connect(URL).unwrap();
+
+        let statement = {
+            let mut statement = Statement::new("match (n {value: {value}}) return n");
+            statement.add_param("value", 42);
+            statement
+        };
+
+        let result = graph.cypher().exec(statement).unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn cypher_query_with_multiple_params() {
+        let graph = GraphClient::connect(URL).unwrap();
+
+        let statement = {
+            let mut statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n");
+            statement
+                .with_param("name", "Neo")
+                .with_param("value", 42);
+            statement
+        };
+
+        let result = graph.cypher().exec(statement).unwrap();
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
@@ -159,7 +192,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut query = graph.cypher.query();
-        query.add_simple_statement("match n return n");
+        query.add_statement("match n return n");
 
         let result = query.send().unwrap();
 

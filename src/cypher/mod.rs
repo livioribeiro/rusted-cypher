@@ -28,7 +28,7 @@
 //! let cypher = Cypher::new(url, headers);
 //!
 //! let mut query = cypher.query();
-//! query.add_simple_statement("match n return n");
+//! query.add_statement("match n return n");
 //!
 //! let result = query.send().unwrap();
 //!
