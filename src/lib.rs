@@ -10,26 +10,46 @@
 //!
 //! It MAY be extended to support other resources of the neo4j REST api.
 //!
-//! #Examples
+//! # Examples
+//!
+//! Code in examples are assumed to be wrapped in:
 //!
 //! ```
+//! extern crate rusted_cypher;
+//!
 //! use std::collections::BTreeMap;
 //! use rusted_cypher::GraphClient;
 //! use rusted_cypher::cypher::Statement;
 //!
-//! let graph = GraphClient::connect(
-//!     "http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+//! fn main() {
+//!   // Connect to the database
+//!   let graph = GraphClient::connect(
+//!       "http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //!
-//! // Without transactions
+//!   // Example code here!
+//! }
+//! ```
+//!
+//! ## Performing Queries
+//!
+//! ```
+//! # use std::collections::BTreeMap;
+//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::cypher::Statement;
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //! let mut query = graph.cypher().query();
-//! query.add_simple_statement(
+//!
+//! // Statement implements From<&str>
+//! query.add_statement(
 //!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", false);
+//!
+//! // Statement also implements From<(&str, &BTreeMap<String, Value)>
 //! query.add_statement((
 //!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })",
-//!     &params
+//!      &params
 //! ));
 //!
 //! query.send().unwrap();
@@ -45,8 +65,15 @@
 //! }
 //!
 //! graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
+//! ```
 //!
-//! // With transactions
+//! ## With Transactions
+//!
+//! ```
+//! # use std::collections::BTreeMap;
+//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::cypher::Statement;
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //! let stmt = Statement::from(
 //!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
@@ -55,6 +82,7 @@
 //!
 //! let stmt = Statement::from(
 //!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
+//!
 //! transaction.exec(vec![stmt]).unwrap();
 //!
 //! let mut params = BTreeMap::new();
