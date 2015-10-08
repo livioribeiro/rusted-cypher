@@ -40,7 +40,7 @@ use serde_json::{self, Value};
 use time::{self, Tm};
 
 use ::error::{GraphError, Neo4jError};
-use super::cypher::CypherResult;
+use super::result::CypherResult;
 use super::statement::Statement;
 
 const DATETIME_RFC822: &'static str = "%a, %d %b %Y %T %Z";

@@ -33,10 +33,10 @@
 //! ## Performing Queries
 //!
 //! ```
-//! # use std::collections::BTreeMap;
 //! # use rusted_cypher::GraphClient;
 //! # use rusted_cypher::cypher::Statement;
 //! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+//!
 //! let mut query = graph.cypher().query();
 //!
 //! // Statement implements From<&str>
@@ -55,10 +55,15 @@
 //!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
 //! ).unwrap();
 //!
-//! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n").unwrap();
+//! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n.name, n.level, n.safe").unwrap();
 //!
-//! for row in result.iter() {
-//!     println!("{:?}", row);
+//! assert_eq!(result[0].data.len(), 3);
+//!
+//! for row in result[0].rows() {
+//!     let name: String = row.get("n.name").unwrap();
+//!     let level: String = row.get("n.level").unwrap();
+//!     let safeness: bool = row.get("n.safe").unwrap();
+//!     println!("name: {}, level: {}, safe: {}", name, level, safeness);
 //! }
 //!
 //! graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
