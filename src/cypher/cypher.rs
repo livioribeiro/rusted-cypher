@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use hyper::{Client, Url};
 use hyper::header::Headers;
+use serde::Deserialize;
 use serde_json::{self, Value};
 
 use ::error::{GraphError, Neo4jError};
@@ -141,31 +142,56 @@ pub struct CypherResult {
 
 impl CypherResult {
     pub fn iter(&self) -> Iter {
-        Iter::new(&self.data)
+        Iter::new(&self.columns, &self.data)
     }
 }
 
 pub struct Iter<'a> {
     current_index: usize,
+    columns: &'a Vec<String>,
     data: &'a Vec<Value>,
 }
 
 impl<'a> Iter<'a> {
-    pub fn new(data: &'a Vec<Value>) -> Self {
+    pub fn new(columns: &'a Vec<String>, data: &'a Vec<Value>) -> Self {
         Iter {
-            current_index: 0_usize,
+            current_index: 0,
+            columns: columns,
             data: data,
         }
     }
 }
 
+pub struct IterItem<'a> {
+    columns: &'a Vec<String>,
+    data: Vec<Value>,
+}
+
+impl<'a> IterItem<'a> {
+    pub fn new(columns: &'a Vec<String>, data: Vec<Value>) -> Self {
+        IterItem {
+            columns: columns,
+            data: data,
+        }
+    }
+
+    pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, serde_json::error::Error> {
+        match self.columns.iter().position(|c| c == column) {
+            Some(index) => serde_json::value::from_value::<T>(self.data[index].clone()),
+            None => panic!("No such column"),
+        }
+    }
+}
+
 impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Vec<Value>;
+    type Item = IterItem<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        let item = self.data.get(self.current_index);
-        item.map(|i| {
+        self.data.get(self.current_index).map(|item| {
             self.current_index += 1;
-            i.find("row").expect("Wrong result. Missing 'row' property").as_array().unwrap()
+            match item.find("row") {
+                Some(row) => IterItem::new(self.columns.as_ref(), row.as_array().expect("Wrong result").to_owned()),
+                None => panic!("Wrong result. Missing 'row' property"),
+            }
         })
     }
 }
@@ -178,6 +204,7 @@ struct QueryResult {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use super::*;
     use ::cypher::statement::Statement;
 
@@ -223,18 +250,20 @@ mod tests {
         query.send().unwrap();
 
         let mut query = cypher.query();
-        query.add_statement("match (n:TEST_ITER) return n");
+        query.add_statement("match (n:TEST_ITER) return n as node");
 
         let result = query.send().unwrap();
 
         assert_eq!(result[0].data.len(), 2);
 
         let result = result.get(0).unwrap();
-        for row in result.iter() {
-            assert!(row[0].find("name").is_some());
-            assert!(row[0].find("lastname").is_some());
-            assert_eq!(row[0].find("name").unwrap().as_string().unwrap(), "Test");
-            assert_eq!(row[0].find("lastname").unwrap().as_string().unwrap(), "Iter");
+        for item in result.iter() {
+            let item = item.get::<BTreeMap<String, String>>("node");
+            assert!(item.is_ok());
+
+            let item = item.unwrap();
+            assert_eq!(item.get("name").unwrap(), "Test");
+            assert_eq!(item.get("lastname").unwrap(), "Iter");
         }
 
         let mut query = cypher.query();
