@@ -3,7 +3,7 @@ use std::convert::From;
 use serde::Serialize;
 use serde_json::{self, Value};
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Statement {
     statement: String,
     parameters: BTreeMap<String, Value>,

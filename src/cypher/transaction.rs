@@ -5,8 +5,6 @@
 //! ```
 //! # extern crate hyper;
 //! # extern crate rusted_cypher;
-//! # use std::collections::BTreeMap;
-//! # use hyper::Url;
 //! # use hyper::header::{Authorization, Basic, ContentType, Headers};
 //! # use rusted_cypher::Statement;
 //! # use rusted_cypher::cypher::Transaction;
@@ -24,7 +22,8 @@
 //! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 //!
 //! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n");
-//! let results = transaction.exec(vec![stmt]).unwrap();
+//! transaction.add_statement(stmt);
+//! let results = transaction.exec().unwrap();
 //! assert_eq!(results[0].data.len(), 1);
 //!
 //! transaction.rollback().unwrap();
@@ -32,6 +31,7 @@
 //! ```
 
 use std::collections::BTreeMap;
+use std::convert::Into;
 use hyper::Client;
 use hyper::client::response::Response;
 use hyper::header::{Headers, Location};
@@ -96,6 +96,7 @@ pub struct Transaction<'a> {
     expires: Tm,
     client: Client,
     headers: &'a Headers,
+    statements: Vec<Statement>,
 }
 
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
@@ -148,6 +149,7 @@ impl<'a> Transaction<'a> {
             expires: expires,
             client: Client::new(),
             headers: headers,
+            statements: Vec::new(),
         };
 
         Ok((transaction, result.results))
@@ -157,8 +159,26 @@ impl<'a> Transaction<'a> {
         &self.expires
     }
 
-    pub fn commit(self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(send_query(&self.client, &self.commit, self.headers, statements));
+    pub fn add_statement<S: Into<Statement>>(&mut self, statement: S) {
+        self.statements.push(statement.into());
+    }
+
+    pub fn exec(&mut self) -> Result<Vec<CypherResult>, GraphError> {
+        let mut res = try!(send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
+        self.statements.clear();
+
+        let result: QueryResult = try!(parse_response(&mut res));
+
+        let mut expires = result.transaction.expires;
+        let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
+
+        self.expires = expires;
+
+        Ok(result.results)
+    }
+
+    pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
+        let mut res = try!(send_query(&self.client, &self.commit, self.headers, self.statements));
 
         let result: CommitResult = try!(parse_response(&mut res));
 
@@ -172,18 +192,6 @@ impl<'a> Transaction<'a> {
         try!(parse_response::<CommitResult>(&mut res));
 
         Ok(())
-    }
-
-    pub fn exec(&mut self, statements: Vec<Statement>) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(send_query(&self.client, &self.transaction, self.headers, statements));
-        let result: QueryResult = try!(parse_response(&mut res));
-
-        let mut expires = result.transaction.expires;
-        let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
-
-        self.expires = expires;
-
-        Ok(result.results)
     }
 
     pub fn reset_timeout(&mut self) -> Result<(), GraphError> {
@@ -227,17 +235,17 @@ mod tests {
 
         let stmt = Statement::new("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
 
         let stmt = Statement::new("match (n:CREATE_COMMIT) return n");
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 1);
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
 
         let stmt = Statement::new("match (n:CREATE_COMMIT) delete n");
         let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
     }
 
     #[test]
@@ -252,7 +260,7 @@ mod tests {
         let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
 
         assert_eq!(results[0].data.len(), 0);
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
     }
 
     #[test]
@@ -262,7 +270,8 @@ mod tests {
         let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
 
         let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n");
-        let results = transaction.exec(vec![stmt]).unwrap();
+        transaction.add_statement(stmt);
+        let results = transaction.exec().unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 

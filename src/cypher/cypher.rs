@@ -251,10 +251,10 @@ mod tests {
 
         assert_eq!(results[0].data.len(), 1);
 
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
 
         let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n");
         let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
-        transaction.commit(vec![]).unwrap();
+        transaction.commit().unwrap();
     }
 }

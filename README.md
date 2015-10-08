@@ -70,12 +70,14 @@ let (mut transaction, results)
 let stmt = Statement::new(
     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
 
-transaction.exec(vec![stmt]).unwrap();
+transaction.add_statement(stmt);
+transaction.exec().unwrap();
 
 let mut stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n");
 stmt.add_param("safeness", true);
 
-let results = transaction.exec(vec![stmt]).unwrap();
+transaction.add_statement(stmt)
+let results = transaction.exec().unwrap();
 
 assert_eq!(results[0].data.len(), 2);
 
