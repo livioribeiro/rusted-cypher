@@ -1,6 +1,3 @@
-#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
-
 //! Rust crate for accessing the cypher endpoint of a neo4j server
 //!
 //! This is a prototype for accessing the cypher endpoint of a neo4j server, like a sql
@@ -43,9 +40,9 @@
 //! query.add_statement(
 //!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
-//! let mut statement = Statement::new(
-//!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })");
-//! statement.add_param("safeness", false);
+//! let statement = Statement::new(
+//!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })")
+//!     .with_param("safeness", false);
 //!
 //! query.add_statement(statement);
 //!
@@ -91,8 +88,8 @@
 //! let mut params = BTreeMap::new();
 //! params.insert("safeness", true);
 //!
-//! let mut stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n");
-//! stmt.add_param("safeness", true);
+//! let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
+//!     .with_param("safeness", true);
 //!
 //! transaction.add_statement(stmt);
 //! let results = transaction.exec().unwrap();
@@ -101,6 +98,9 @@
 //!
 //! transaction.rollback();
 //! ```
+
+#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
+#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
 extern crate hyper;
 extern crate serde;

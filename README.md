@@ -37,9 +37,9 @@ let mut query = graph.cypher().query();
 query.add_statement(
     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 
-let mut statement = Statement::new(
-  "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })");
-statement.add_param("safeness", true);
+let statement = Statement::new(
+  "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })")
+    with_param("safeness", true);
 
 query.add_statement(statement);
 
@@ -80,8 +80,8 @@ let stmt = Statement::new(
 transaction.add_statement(stmt);
 transaction.exec().unwrap();
 
-let mut stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n");
-stmt.add_param("safeness", true);
+let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
+    with_param("safeness", true);
 
 transaction.add_statement(stmt)
 let results = transaction.exec().unwrap();

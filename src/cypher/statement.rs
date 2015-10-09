@@ -17,7 +17,7 @@ impl Statement  {
         }
     }
 
-    pub fn with_param<V: Serialize>(&mut self, key: &str, value: V) -> &mut Self {
+    pub fn with_param<V: Serialize>(mut self, key: &str, value: V) -> Self {
         self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
         self
     }
@@ -63,8 +63,8 @@ mod tests {
 
     #[test]
     fn with_param() {
-        let mut statement = Statement::new("match n return n");
-        statement.with_param("param1", "value1")
+        let statement = Statement::new("match n return n")
+            .with_param("param1", "value1")
             .with_param("param2", 2)
             .with_param("param3", 3.0)
             .with_param("param4", [0; 4]);
@@ -85,8 +85,8 @@ mod tests {
 
     #[test]
     fn remove_param() {
-        let mut statement = Statement::new("match n return n");
-        statement.with_param("param1", "value1")
+        let mut statement = Statement::new("match n return n")
+            .with_param("param1", "value1")
             .with_param("param2", 2)
             .with_param("param3", 3.0)
             .with_param("param4", [0; 4]);

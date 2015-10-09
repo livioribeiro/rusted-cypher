@@ -144,11 +144,8 @@ mod tests {
     fn cypher_query_with_string_param() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let statement = {
-            let mut statement = Statement::new("match (n {name: {name}}) return n");
-            statement.add_param("name", "Neo");
-            statement
-        };
+        let statement = Statement::new("match (n {name: {name}}) return n")
+            .with_param("name", "Neo");
 
         let result = graph.cypher().exec(statement).unwrap();
         assert_eq!(result[0].columns.len(), 1);
@@ -159,11 +156,8 @@ mod tests {
     fn cypher_query_with_int_param() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let statement = {
-            let mut statement = Statement::new("match (n {value: {value}}) return n");
-            statement.add_param("value", 42);
-            statement
-        };
+        let statement = Statement::new("match (n {value: {value}}) return n")
+            .with_param("value", 42);
 
         let result = graph.cypher().exec(statement).unwrap();
         assert_eq!(result[0].columns.len(), 1);
@@ -174,13 +168,9 @@ mod tests {
     fn cypher_query_with_multiple_params() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let statement = {
-            let mut statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n");
-            statement
-                .with_param("name", "Neo")
-                .with_param("value", 42);
-            statement
-        };
+        let statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n")
+            .with_param("name", "Neo")
+            .with_param("value", 42);
 
         let result = graph.cypher().exec(statement).unwrap();
         assert_eq!(result[0].columns.len(), 1);
