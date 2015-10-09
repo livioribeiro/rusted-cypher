@@ -2,7 +2,12 @@ use serde::Deserialize;
 use serde_json;
 use serde_json::value::Value;
 
-use ::error::GraphError;
+use ::error::{GraphError, Neo4jError};
+
+pub trait ResultTrait {
+    fn results(&self) -> &Vec<CypherResult>;
+    fn errors(&self) -> &Vec<Neo4jError>;
+}
 
 #[derive(Debug, Deserialize)]
 pub struct RowResult {

@@ -54,11 +54,57 @@ pub use self::result::CypherResult;
 use std::convert::Into;
 use std::collections::BTreeMap;
 use std::error::Error;
-use hyper::{Client, Url};
+use hyper::Url;
 use hyper::header::Headers;
+use hyper::client::{Client, Response};
+use serde::Deserialize;
 use serde_json::{self, Value};
 
+use self::result::ResultTrait;
 use ::error::{GraphError, Neo4jError};
+
+fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
+    -> Result<Response, GraphError> {
+
+    let mut json = BTreeMap::new();
+    json.insert("statements", statements);
+    let json = try!(serde_json::to_string(&json));
+
+    let req = client.post(endpoint)
+        .headers(headers.clone())
+        .body(&json);
+
+    let res = try!(req.send());
+    Ok(res)
+}
+
+fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
+    let mut res = res;
+    let value: Value = try!(serde_json::de::from_reader(&mut res));
+    let result = try!(serde_json::value::from_value::<T>(value.clone()));
+
+    if result.errors().len() > 0 {
+        return Err(GraphError::new_neo4j_error(result.errors().clone()));
+    }
+
+    Ok(result)
+}
+
+#[derive(Debug, Deserialize)]
+struct QueryResult {
+    results: Vec<CypherResult>,
+    errors: Vec<Neo4jError>,
+}
+
+impl ResultTrait for QueryResult {
+    fn results(&self) -> &Vec<CypherResult> {
+        &self.results
+    }
+
+    fn errors(&self) -> &Vec<Neo4jError> {
+        &self.errors
+    }
+}
 
 /// Represents the cypher endpoint of a neo4j server
 ///
@@ -89,6 +135,10 @@ impl Cypher {
 
     fn client(&self) -> &Client {
         &self.client
+    }
+
+    fn headers(&self) -> &Headers {
+        &self.headers
     }
 
     /// Creates a new `CypherQuery`
@@ -155,37 +205,30 @@ impl<'a> CypherQuery<'a> {
     /// into a `Vec<CypherResult>` in order to match the response of the neo4j api. If there is an
     /// error, a `GraphError` is returned.
     pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
-        let headers = self.cypher.headers.clone();
+        let client = self.cypher.client();
+        let endpoint = format!("{}/{}", self.cypher.endpoint(), "commit");
+        let headers = self.cypher.headers();
+        let mut res = try!(send_query(client, &endpoint, headers, self.statements));
 
-        let mut json = BTreeMap::new();
-        json.insert("statements", self.statements);
-        let json = try!(serde_json::to_string(&json));
-
-        let cypher_commit = format!("{}/{}", self.cypher.endpoint(), "commit");
-        let req = self.cypher.client().post(&cypher_commit)
-            .headers(headers)
-            .body(&json);
-
-        let mut res = try!(req.send());
-
-        let result: Value = try!(serde_json::de::from_reader(&mut res));
-        match serde_json::value::from_value::<QueryResult>(result) {
-            Ok(result) => {
-                if result.errors.len() > 0 {
-                    return Err(GraphError::new_neo4j_error(result.errors))
-                }
-
-                return Ok(result.results);
-            }
-            Err(e) => return Err(GraphError::new_error(Box::new(e)))
+        let result: QueryResult = try!(parse_response(&mut res));
+        if result.errors().len() > 0 {
+            return Err(GraphError::new_neo4j_error(result.errors().clone()))
         }
-    }
-}
 
-#[derive(Debug, Deserialize)]
-struct QueryResult {
-    results: Vec<CypherResult>,
-    errors: Vec<Neo4jError>,
+        Ok(result.results)
+
+        // let result: Value = try!(serde_json::de::from_reader(&mut res));
+        // match serde_json::value::from_value::<QueryResult>(result) {
+        //     Ok(result) => {
+        //         if result.errors.len() > 0 {
+        //             return Err(GraphError::new_neo4j_error(result.errors))
+        //         }
+        //
+        //         return Ok(result.results);
+        //     }
+        //     Err(e) => return Err(GraphError::new_error(Box::new(e)))
+        // }
+    }
 }
 
 #[cfg(test)]

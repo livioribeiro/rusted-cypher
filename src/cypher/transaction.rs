@@ -30,17 +30,13 @@
 //! # }
 //! ```
 
-use std::collections::BTreeMap;
 use std::convert::Into;
-use hyper::Client;
-use hyper::client::response::Response;
 use hyper::header::{Headers, Location};
-use serde::Deserialize;
-use serde_json::{self, Value};
+use hyper::client::Client;
 use time::{self, Tm};
 
 use ::error::{GraphError, Neo4jError};
-use super::result::CypherResult;
+use super::result::{CypherResult, ResultTrait};
 use super::statement::Statement;
 
 const DATETIME_RFC822: &'static str = "%a, %d %b %Y %T %Z";
@@ -50,20 +46,15 @@ struct TransactionInfo {
     expires: String,
 }
 
-trait ResultTrait {
-    fn results(&self) -> &Vec<CypherResult>;
-    fn errors(&self) -> &Vec<Neo4jError>;
-}
-
 #[derive(Debug, Deserialize)]
-struct QueryResult {
+struct TransactionResult {
     commit: String,
     transaction: TransactionInfo,
     results: Vec<CypherResult>,
     errors: Vec<Neo4jError>,
 }
 
-impl ResultTrait for QueryResult {
+impl ResultTrait for TransactionResult {
     fn results(&self) -> &Vec<CypherResult> {
         &self.results
     }
@@ -99,41 +90,14 @@ pub struct Transaction<'a> {
     statements: Vec<Statement>,
 }
 
-fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
-    -> Result<Response, GraphError> {
-
-    let mut json = BTreeMap::new();
-    json.insert("statements", statements);
-    let json = try!(serde_json::to_string(&json));
-
-    let req = client.post(endpoint)
-        .headers(headers.clone())
-        .body(&json);
-
-    let res = try!(req.send());
-    Ok(res)
-}
-
-fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let mut res = res;
-    let value: Value = try!(serde_json::de::from_reader(&mut res));
-    let result = try!(serde_json::value::from_value::<T>(value.clone()));
-
-    if result.errors().len() > 0 {
-        return Err(GraphError::new_neo4j_error(result.errors().clone()));
-    }
-
-    Ok(result)
-}
-
 impl<'a> Transaction<'a> {
     pub fn begin(endpoint: &str, headers: &'a Headers, statements: Vec<Statement>)
         -> Result<(Self, Vec<CypherResult>), GraphError> {
 
         let client = Client::new();
 
-        let mut res = try!(send_query(&client, endpoint, headers, statements));
-        let result: QueryResult = try!(parse_response(&mut res));
+        let mut res = try!(super::send_query(&client, endpoint, headers, statements));
+        let result: TransactionResult = try!(super::parse_response(&mut res));
 
         let transaction = match res.headers.get::<Location>() {
             Some(location) => location.0.to_owned(),
@@ -164,10 +128,10 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn exec(&mut self) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
+        let mut res = try!(super::send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
         self.statements.clear();
 
-        let result: QueryResult = try!(parse_response(&mut res));
+        let result: TransactionResult = try!(super::parse_response(&mut res));
 
         let mut expires = result.transaction.expires;
         let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
@@ -178,9 +142,9 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(send_query(&self.client, &self.commit, self.headers, self.statements));
+        let mut res = try!(super::send_query(&self.client, &self.commit, self.headers, self.statements));
 
-        let result: CommitResult = try!(parse_response(&mut res));
+        let result: CommitResult = try!(super::parse_response(&mut res));
 
         Ok(result.results)
     }
@@ -189,13 +153,13 @@ impl<'a> Transaction<'a> {
         let req = self.client.delete(&self.transaction).headers(self.headers.clone());
         let mut res = try!(req.send());
 
-        try!(parse_response::<CommitResult>(&mut res));
+        try!(super::parse_response::<CommitResult>(&mut res));
 
         Ok(())
     }
 
     pub fn reset_timeout(&mut self) -> Result<(), GraphError> {
-        try!(send_query(&self.client, &self.transaction, self.headers, vec![]));
+        try!(super::send_query(&self.client, &self.transaction, self.headers, vec![]));
         Ok(())
     }
 }
