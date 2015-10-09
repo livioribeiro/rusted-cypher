@@ -140,9 +140,7 @@ pub struct CypherQuery<'a> {
 impl<'a> CypherQuery<'a> {
     /// Adds a statement to the query
     ///
-    /// The statement can be anything that implements Into<Statement>,
-    /// currently &str and (&str, &BTreeMap<String, Value>).
-    /// Statement itself already implements Into<Statement>.
+    /// The statement can be anything that implements Into<Statement>.
     pub fn add_statement<T: Into<Statement>>(&mut self, statement: T) {
         self.statements.push(statement.into());
     }
