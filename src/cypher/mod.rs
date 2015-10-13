@@ -149,7 +149,7 @@ impl Cypher {
         }
     }
 
-    /// Executes a cypher query
+    /// Executes the given `Statement`
     ///
     /// Parameter can be anything that implements `Into<Statement>`, `&str` or or `Statement` itself
     ///
@@ -157,9 +157,17 @@ impl Cypher {
     ///
     /// ```
     /// # use rusted_cypher::GraphClient;
+    /// # use rusted_cypher::Statement;
     /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
     /// # let cypher = graph.cypher();
+    /// // `&str` implements `Into<Statement>`
     /// let result = cypher.exec("match n return n");
+    /// # let result = result.unwrap();
+    /// # assert_eq!(result[0].columns.len(), 1);
+    /// # assert_eq!(result[0].columns[0], "n");
+    /// // Creating `Statement` by hand
+    /// let statement = Statement::new("match n return n");
+    /// let result = cypher.exec(statement);
     /// # let result = result.unwrap();
     /// # assert_eq!(result[0].columns.len(), 1);
     /// # assert_eq!(result[0].columns[0], "n");
@@ -188,9 +196,17 @@ pub struct CypherQuery<'a> {
 }
 
 impl<'a> CypherQuery<'a> {
+    /// Adds statements in builder like style
+    ///
+    /// The parameter must implement `Into<Statement>` trait
+    pub fn with_statement<T: Into<Statement>>(mut self, statement: T) -> Self {
+        self.add_statement(statement);
+        self
+    }
+
     /// Adds a statement to the query
     ///
-    /// The statement can be anything that implements Into<Statement>.
+    /// The parameter must implement `Into<Statement>` trait
     pub fn add_statement<T: Into<Statement>>(&mut self, statement: T) {
         self.statements.push(statement.into());
     }
@@ -223,6 +239,12 @@ impl<'a> CypherQuery<'a> {
 mod tests {
     use super::*;
 
+    #[derive(Serialize, Deserialize)]
+    struct ComplexType {
+        pub name: String,
+        pub  value: i32,
+    }
+
     fn get_cypher() -> Cypher {
         use hyper::Url;
         use hyper::header::{Authorization, Basic, ContentType, Headers};
@@ -242,31 +264,80 @@ mod tests {
     }
 
     #[test]
-    fn query() {
-        let cypher = get_cypher();
-        let mut query = cypher.query();
-
-        query.add_statement("match n return n");
-
-        let result = query.send().unwrap();
+    fn query_without_params() {
+        let result = get_cypher().exec("match n return n").unwrap();
 
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");
     }
 
     #[test]
-    fn transaction() {
+    fn query_with_string_param() {
+        let statement = Statement::new("match (n {name: {name}}) return n")
+            .with_param("name", "Neo");
+
+        let result = get_cypher().exec(statement).unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn query_with_int_param() {
+        let statement = Statement::new("match (n {value: {value}}) return n")
+            .with_param("value", 42);
+
+        let result = get_cypher().exec(statement).unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn query_with_complex_param() {
         let cypher = get_cypher();
 
-        let stmt = Statement::new("create (n:CYPHER_TRANSACTION) return n");
-        let (transaction, results) = cypher.begin_transaction(vec![stmt]).unwrap();
+        let complex_param = ComplexType {
+            name: "Complex".to_owned(),
+            value: 42,
+        };
 
-        assert_eq!(results[0].data.len(), 1);
+        let statement = Statement::new("create (n:CYPHER_COMPLEX_PARAM {p})")
+            .with_param("p", complex_param);
 
-        transaction.commit().unwrap();
+        let result = cypher.exec(statement);
+        assert!(result.is_ok());
 
-        let stmt = Statement::new("match (n:CYPHER_TRANSACTION) delete n");
-        let (transaction, _) = cypher.begin_transaction(vec![stmt]).unwrap();
-        transaction.commit().unwrap();
+        let result = cypher.exec("match (n:CYPHER_COMPLEX_PARAM) return n").unwrap();
+        for row in result[0].rows() {
+            let complex_result = row.get::<ComplexType>("n").unwrap();
+            assert_eq!(complex_result.name, "Complex");
+            assert_eq!(complex_result.value, 42);
+        }
+
+        cypher.exec("match (n:CYPHER_COMPLEX_PARAM) delete n").unwrap();
+    }
+
+    #[test]
+    fn query_with_multiple_params() {
+        let statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n")
+            .with_param("name", "Neo")
+            .with_param("value", 42);
+
+        let result = get_cypher().exec(statement).unwrap();
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+    }
+
+    #[test]
+    fn multiple_queries() {
+        let cypher = get_cypher();
+        let statement1 = Statement::new("match n return n");
+        let statement2 = Statement::new("match n return n");
+
+        let query = cypher.query()
+            .with_statement(statement1)
+            .with_statement(statement2);
+
+        let result = query.send().unwrap();
+        assert_eq!(result.len(), 2);
     }
 }

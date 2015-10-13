@@ -18,7 +18,7 @@ impl Statement  {
     }
 
     pub fn with_param<V: Serialize>(mut self, key: &str, value: V) -> Self {
-        self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
+        self.add_param(key, value);
         self
     }
 

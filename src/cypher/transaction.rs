@@ -190,7 +190,8 @@ mod tests {
     #[test]
     fn begin_transaction() {
         let headers = get_headers();
-        Transaction::begin(URL, &headers, vec![]).unwrap();
+        let result = Transaction::begin(URL, &headers, vec![]).unwrap();
+        assert_eq!(result.1.len(), 0);
     }
 
     #[test]

@@ -118,7 +118,7 @@ impl GraphClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::cypher::statement::Statement;
+    use ::Statement;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 
@@ -131,57 +131,10 @@ mod tests {
     }
 
     #[test]
-    fn cypher_query() {
+    fn query() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let result = graph.cypher().exec("match n return n").unwrap();
-
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
-    }
-
-    #[test]
-    fn cypher_query_with_string_param() {
-        let graph = GraphClient::connect(URL).unwrap();
-
-        let statement = Statement::new("match (n {name: {name}}) return n")
-            .with_param("name", "Neo");
-
-        let result = graph.cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
-    }
-
-    #[test]
-    fn cypher_query_with_int_param() {
-        let graph = GraphClient::connect(URL).unwrap();
-
-        let statement = Statement::new("match (n {value: {value}}) return n")
-            .with_param("value", 42);
-
-        let result = graph.cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
-    }
-
-    #[test]
-    fn cypher_query_with_multiple_params() {
-        let graph = GraphClient::connect(URL).unwrap();
-
-        let statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n")
-            .with_param("name", "Neo")
-            .with_param("value", 42);
-
-        let result = graph.cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
-    }
-
-    #[test]
-    fn create_query() {
-        let graph = GraphClient::connect(URL).unwrap();
-
-        let mut query = graph.cypher.query();
+        let mut query = graph.cypher().query();
         query.add_statement("match n return n");
 
         let result = query.send().unwrap();
@@ -191,9 +144,15 @@ mod tests {
     }
 
     #[test]
-    fn create_delete_nodes() {
+    fn transaction() {
         let graph = GraphClient::connect(URL).unwrap();
-        graph.cypher().exec("create (n:TEST_GRAPH {name: 'Rust', level: 'low'})").unwrap();
-        graph.cypher().exec("match (n:TEST_GRAPH) delete n").unwrap();
+
+        let statement = Statement::new("match n return n");
+        let (transaction, result) = graph.cypher().begin_transaction(vec![statement]).unwrap();
+
+        assert_eq!(result[0].columns.len(), 1);
+        assert_eq!(result[0].columns[0], "n");
+
+        transaction.rollback().unwrap();
     }
 }
