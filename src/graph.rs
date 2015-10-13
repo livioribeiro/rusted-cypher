@@ -118,7 +118,6 @@ impl GraphClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::Statement;
 
     const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 
@@ -147,8 +146,10 @@ mod tests {
     fn transaction() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let statement = Statement::new("match n return n");
-        let (transaction, result) = graph.cypher().begin_transaction(vec![statement]).unwrap();
+        let (transaction, result) = graph.cypher().transaction()
+            .with_statement("match n return n")
+            .begin()
+            .unwrap();
 
         assert_eq!(result[0].columns.len(), 1);
         assert_eq!(result[0].columns[0], "n");

@@ -179,8 +179,8 @@ impl Cypher {
         query.send()
     }
 
-    pub fn begin_transaction(&self, statements: Vec<Statement>) -> Result<(Transaction, Vec<CypherResult>), GraphError> {
-        Transaction::begin(&format!("{}", &self.endpoint), &self.headers, statements)
+    pub fn transaction(&self) -> Transaction<self::transaction::Created> {
+        Transaction::new(&self.endpoint.to_string(), &self.headers)
     }
 }
 

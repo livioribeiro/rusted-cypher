@@ -18,11 +18,12 @@
 //! #     }
 //! # ));
 //! # headers.set(ContentType::json());
-//! let stmt = Statement::new("CREATE (n:TRANSACTION)");
-//! let (mut transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+//! let transaction = Transaction::new(URL, &headers)
+//!     .with_statement("CREATE (n:TRANSACTION)");
 //!
-//! let stmt = Statement::new("MATCH (n:TRANSACTION) RETURN n");
-//! transaction.add_statement(stmt);
+//! let (mut transaction, _) = transaction.begin().unwrap();
+//!
+//! transaction.add_statement("MATCH (n:TRANSACTION) RETURN n");
 //! let results = transaction.exec().unwrap();
 //! assert_eq!(results[0].data.len(), 1);
 //!
@@ -30,7 +31,9 @@
 //! # }
 //! ```
 
+use std::any::Any;
 use std::convert::Into;
+use std::marker::PhantomData;
 use hyper::header::{Headers, Location};
 use hyper::client::Client;
 use time::{self, Tm};
@@ -40,6 +43,9 @@ use super::result::{CypherResult, ResultTrait};
 use super::statement::Statement;
 
 const DATETIME_RFC822: &'static str = "%a, %d %b %Y %T %Z";
+
+pub struct Created;
+pub struct Started;
 
 #[derive(Debug, Deserialize)]
 struct TransactionInfo {
@@ -81,22 +87,50 @@ impl ResultTrait for CommitResult {
     }
 }
 
-pub struct Transaction<'a> {
+pub struct Transaction<'a, State: Any = Created> {
     transaction: String,
     commit: String,
     expires: Tm,
     client: Client,
     headers: &'a Headers,
     statements: Vec<Statement>,
+    _state: PhantomData<State>,
 }
 
-impl<'a> Transaction<'a> {
-    pub fn begin(endpoint: &str, headers: &'a Headers, statements: Vec<Statement>)
-        -> Result<(Self, Vec<CypherResult>), GraphError> {
+impl<'a, State: Any> Transaction<'a, State> {
+    pub fn add_statement<S: Into<Statement>>(&mut self, statement: S) {
+        self.statements.push(statement.into());
+    }
 
-        let client = Client::new();
+    pub fn get_expires(&self) -> &Tm {
+        &self.expires
+    }
+}
 
-        let mut res = try!(super::send_query(&client, endpoint, headers, statements));
+impl<'a> Transaction<'a, Created> {
+    pub fn new(endpoint: &str, headers: &'a Headers) -> Transaction<'a, Created> {
+        Transaction {
+            transaction: endpoint.to_owned(),
+            commit: endpoint.to_owned(),
+            expires: time::now_utc(),
+            client: Client::new(),
+            headers: headers,
+            statements: vec![],
+            _state: PhantomData,
+        }
+    }
+
+    pub fn with_statement<S: Into<Statement>>(mut self, statement: S) -> Self {
+        self.add_statement(statement);
+        self
+    }
+
+    pub fn begin(self) -> Result<(Transaction<'a, Started>, Vec<CypherResult>), GraphError> {
+        let mut res = try!(super::send_query(&self.client,
+                                             &self.transaction,
+                                             self.headers,
+                                             self.statements));
+
         let result: TransactionResult = try!(super::parse_response(&mut res));
 
         let transaction = match res.headers.get::<Location>() {
@@ -111,20 +145,20 @@ impl<'a> Transaction<'a> {
             transaction: transaction,
             commit: result.commit,
             expires: expires,
-            client: Client::new(),
-            headers: headers,
+            client: self.client,
+            headers: self.headers,
             statements: Vec::new(),
+            _state: PhantomData,
         };
 
         Ok((transaction, result.results))
     }
+}
 
-    pub fn get_expires(&self) -> &Tm {
-        &self.expires
-    }
-
-    pub fn add_statement<S: Into<Statement>>(&mut self, statement: S) {
-        self.statements.push(statement.into());
+impl<'a> Transaction<'a, Started> {
+    pub fn with_statement<S: Into<Statement>>(&mut self, statement: S) -> &mut Self {
+        self.add_statement(statement);
+        self
     }
 
     pub fn exec(&mut self) -> Result<Vec<CypherResult>, GraphError> {
@@ -167,7 +201,6 @@ impl<'a> Transaction<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::Statement;
     use hyper::header::{Authorization, Basic, ContentType, Headers};
 
     const URL: &'static str = "http:neo4j:neo4j@localhost:7474/db/data/transaction";
@@ -190,7 +223,8 @@ mod tests {
     #[test]
     fn begin_transaction() {
         let headers = get_headers();
-        let result = Transaction::begin(URL, &headers, vec![]).unwrap();
+        let transaction = Transaction::new(URL, &headers);
+        let result = transaction.begin().unwrap();
         assert_eq!(result.1.len(), 0);
     }
 
@@ -198,18 +232,21 @@ mod tests {
     fn create_node_and_commit() {
         let headers = get_headers();
 
-        let stmt = Statement::new("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
-        let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        let transaction = Transaction::new(URL, &headers)
+            .with_statement("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
+        let (transaction, _) = transaction.begin().unwrap();
         transaction.commit().unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_COMMIT) return n");
-        let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        let transaction = Transaction::new(URL, &headers)
+            .with_statement("match (n:CREATE_COMMIT) return n");
+        let (transaction, results) = transaction.begin().unwrap();
 
         assert_eq!(results[0].data.len(), 1);
         transaction.commit().unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_COMMIT) delete n");
-        let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        let transaction = Transaction::new(URL, &headers)
+            .with_statement("match (n:CREATE_COMMIT) delete n");
+        let (transaction, _) = transaction.begin().unwrap();
         transaction.commit().unwrap();
     }
 
@@ -217,12 +254,14 @@ mod tests {
     fn create_node_and_rollback() {
         let headers = get_headers();
 
-        let stmt = Statement::new("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
-        let (transaction, _) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        let transaction = Transaction::new(URL, &headers)
+            .with_statement("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
+        let (transaction, _) = transaction.begin().unwrap();
         transaction.rollback().unwrap();
 
-        let stmt = Statement::new("match (n:CREATE_ROLLBACK) return n");
-        let (transaction, results) = Transaction::begin(URL, &headers, vec![stmt]).unwrap();
+        let transaction = Transaction::new(URL, &headers)
+            .with_statement("match (n:CREATE_ROLLBACK) return n");
+        let (transaction, results) = transaction.begin().unwrap();
 
         assert_eq!(results[0].data.len(), 0);
         transaction.commit().unwrap();
@@ -232,11 +271,12 @@ mod tests {
     fn query_open_transaction() {
         let headers = get_headers();
 
-        let (mut transaction, _) = Transaction::begin(URL, &headers, vec![]).unwrap();
+        let (mut transaction, _) = Transaction::new(URL, &headers).begin().unwrap();
 
-        let stmt = Statement::new("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n");
-        transaction.add_statement(stmt);
-        let results = transaction.exec().unwrap();
+        let results = transaction
+            .with_statement("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n")
+            .exec()
+            .unwrap();
 
         assert_eq!(results[0].data.len(), 1);
 

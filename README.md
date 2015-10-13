@@ -38,15 +38,15 @@ query.add_statement(
     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 
 let statement = Statement::new(
-  "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })")
-    with_param("safeness", true);
+  "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })"
+).with_param("safeness", true);
 
 query.add_statement(statement);
 
 query.send().unwrap();
 
 graph.cypher().exec(
-    "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
+  "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
 ).unwrap();
 
 let result = graph.cypher().exec(
@@ -68,22 +68,21 @@ graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
 ### With Transactions
 
 ```rust
-let stmt = Statement::new(
+let transaction = graph.cypher().transaction()
+  .with_statement(
     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 
-let (mut transaction, results)
-    = graph.cypher().begin_transaction(vec![stmt]).unwrap();
+let (mut transaction, results) = transaction.begin().unwrap();
 
-let stmt = Statement::new(
-    "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
-
-transaction.add_statement(stmt);
+transaction.add_statement(
+  "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
 transaction.exec().unwrap();
 
-let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
-    with_param("safeness", true);
+let stmt = Statement::new(
+  "MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n"
+).with_param("safeness", true);
 
-transaction.add_statement(stmt)
+transaction.add_statement(stmt);
 let results = transaction.exec().unwrap();
 
 assert_eq!(results[0].data.len(), 2);

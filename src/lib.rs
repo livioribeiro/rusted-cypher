@@ -73,20 +73,13 @@
 //! # use rusted_cypher::GraphClient;
 //! # use rusted_cypher::cypher::Statement;
 //! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-//! let stmt = Statement::new(
-//!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
+//! let transaction = graph.cypher().transaction()
+//!     .with_statement("CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
-//! let (mut transaction, results)
-//!     = graph.cypher().begin_transaction(vec![stmt]).unwrap();
+//! let (mut transaction, results) = transaction.begin().unwrap();
 //!
-//! let stmt = Statement::new(
-//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
-//!
-//! transaction.add_statement(stmt);
+//! transaction.add_statement("CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
 //! transaction.exec().unwrap();
-//!
-//! let mut params = BTreeMap::new();
-//! params.insert("safeness", true);
 //!
 //! let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
 //!     .with_param("safeness", true);
