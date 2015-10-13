@@ -216,18 +216,6 @@ impl<'a> CypherQuery<'a> {
         }
 
         Ok(result.results)
-
-        // let result: Value = try!(serde_json::de::from_reader(&mut res));
-        // match serde_json::value::from_value::<QueryResult>(result) {
-        //     Ok(result) => {
-        //         if result.errors.len() > 0 {
-        //             return Err(GraphError::new_neo4j_error(result.errors))
-        //         }
-        //
-        //         return Ok(result.results);
-        //     }
-        //     Err(e) => return Err(GraphError::new_error(Box::new(e)))
-        // }
     }
 }
 
