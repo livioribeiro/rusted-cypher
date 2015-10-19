@@ -34,8 +34,8 @@
 use std::any::Any;
 use std::convert::Into;
 use std::marker::PhantomData;
+use hyper::Client;
 use hyper::header::{Headers, Location};
-use hyper::client::Client;
 use time::{self, Tm};
 
 use ::error::{GraphError, Neo4jError};

@@ -42,7 +42,6 @@
 //! # }
 //! ```
 
-
 pub mod transaction;
 pub mod statement;
 pub mod result;
@@ -54,9 +53,9 @@ pub use self::result::CypherResult;
 use std::convert::Into;
 use std::collections::BTreeMap;
 use std::error::Error;
-use hyper::Url;
-use hyper::header::Headers;
 use hyper::client::{Client, Response};
+use hyper::header::Headers;
+use url::Url;
 use serde::Deserialize;
 use serde_json::{self, Value};
 

@@ -2,9 +2,9 @@ use std::error::Error;
 use std::fmt;
 use std::string::FromUtf8Error;
 use hyper;
+use url;
 use serde_json;
 use time;
-use url;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Neo4jError {
