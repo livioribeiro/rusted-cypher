@@ -102,6 +102,9 @@ extern crate serde_json;
 extern crate semver;
 extern crate time;
 
+#[macro_use]
+extern crate log;
+
 #[cfg(feature = "serde_macros")]
 include!("lib.rs.in");
 

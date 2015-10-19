@@ -64,7 +64,14 @@ pub struct GraphClient {
 impl GraphClient {
     /// Connects to the neo4j server
     pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
-        let url = try!(Url::parse(endpoint));
+        let url = match Url::parse(endpoint) {
+            Ok(url) => url,
+            Err(e) => {
+                error!("Unable to parse URL");
+                return GraphError::new_error(Box::new(e));
+            },
+        };
+
         let mut headers = Headers::new();
 
         url.username().map(|username| url.password().map(|password| {
@@ -79,11 +86,17 @@ impl GraphClient {
         headers.set(ContentType::json());
 
         let client = Client::new();
-        let mut res = try!(client.get(url.clone()).headers(headers.clone()).send());
+        let mut res = match client.get(url.clone()).headers(headers.clone()).send() {
+            Ok(res) => res,
+            Err(e) => {
+                error!("Unable to connect to server");
+                return GraphError::new_error(Box::new(e)).
+            },
+        };
+
         let mut buf = String::new();
-        match res.read_to_string(&mut buf) {
-            Err(e) => return Err(GraphError::new_error(Box::new(e))),
-            _ => {}
+        if let Err(e) = res.read_to_string(&mut buf) {
+            return Err(GraphError::new_error(Box::new(e)));
         }
 
         let service_root = try!(decode_service_root(&buf));
