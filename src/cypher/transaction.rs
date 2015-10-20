@@ -126,6 +126,8 @@ impl<'a> Transaction<'a, Created> {
     }
 
     pub fn begin(self) -> Result<(Transaction<'a, Started>, Vec<CypherResult>), GraphError> {
+        debug!("Beginning transaction");
+
         let mut res = try!(super::send_query(&self.client,
                                              &self.transaction,
                                              self.headers,
@@ -135,11 +137,16 @@ impl<'a> Transaction<'a, Created> {
 
         let transaction = match res.headers.get::<Location>() {
             Some(location) => location.0.to_owned(),
-            None => return Err(GraphError::new("No transaction URI returned from server")),
+            None => {
+                error!("No transaction URI returned from server");
+                return Err(GraphError::new("No transaction URI returned from server"));
+            },
         };
 
         let mut expires = result.transaction.expires;
         let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
+
+        debug!("Transaction started at {}, expires in {}", transaction, expires.rfc822z());
 
         let transaction = Transaction {
             transaction: transaction,
@@ -176,18 +183,22 @@ impl<'a> Transaction<'a, Started> {
     }
 
     pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
+        debug!("Commiting transaction {}", self.transaction);
         let mut res = try!(super::send_query(&self.client, &self.commit, self.headers, self.statements));
 
         let result: CommitResult = try!(super::parse_response(&mut res));
+        debug!("Transaction commited {}", self.transaction);
 
         Ok(result.results)
     }
 
     pub fn rollback(self) -> Result<(), GraphError> {
+        debug!("Rolling back transaction {}", self.transaction);
         let req = self.client.delete(&self.transaction).headers(self.headers.clone());
         let mut res = try!(req.send());
 
         try!(super::parse_response::<CommitResult>(&mut res));
+        debug!("Transaction rolled back {}", self.transaction);
 
         Ok(())
     }

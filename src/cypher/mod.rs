@@ -58,6 +58,8 @@ use hyper::header::Headers;
 use url::Url;
 use serde::Deserialize;
 use serde_json::{self, Value};
+use serde_json::de as json_de;
+use serde_json::value as json_value;
 
 use self::result::ResultTrait;
 use ::error::{GraphError, Neo4jError};
@@ -67,20 +69,33 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
 
     let mut json = BTreeMap::new();
     json.insert("statements", statements);
-    let json = try!(serde_json::to_string(&json));
+    let json = match serde_json::to_string(&json) {
+        Ok(json) => json,
+        Err(e) => {
+            error!("Unable to serialize request: {}", e);
+            return Err(GraphError::new_error(Box::new(e)));
+        }
+    };
 
     let req = client.post(endpoint)
         .headers(headers.clone())
         .body(&json);
+
+    debug!("Seding query:\n{}", ::serde_json::ser::to_string_pretty(&json).unwrap_or(String::new()));
 
     let res = try!(req.send());
     Ok(res)
 }
 
 fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let mut res = res;
-    let value: Value = try!(serde_json::de::from_reader(&mut res));
-    let result = try!(serde_json::value::from_value::<T>(value.clone()));
+    let value = json_de::from_reader(res);
+    let result = match value.and_then(|v: Value| json_value::from_value::<T>(v.clone())) {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Unable to parse response: {}", e);
+            return Err(GraphError::new_error(Box::new(e)));
+        }
+    };
 
     if result.errors().len() > 0 {
         return Err(GraphError::new_neo4j_error(result.errors().clone()));

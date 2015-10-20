@@ -68,7 +68,7 @@ impl GraphClient {
             Ok(url) => url,
             Err(e) => {
                 error!("Unable to parse URL");
-                return GraphError::new_error(Box::new(e));
+                return Err(GraphError::new_error(Box::new(e)));
             },
         };
 
@@ -89,8 +89,8 @@ impl GraphClient {
         let mut res = match client.get(url.clone()).headers(headers.clone()).send() {
             Ok(res) => res,
             Err(e) => {
-                error!("Unable to connect to server");
-                return GraphError::new_error(Box::new(e)).
+                error!("Unable to connect to server: {}", e);
+                return Err(GraphError::new_error(Box::new(e)));
             },
         };
 
