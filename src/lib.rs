@@ -33,7 +33,6 @@
 //! # use rusted_cypher::GraphClient;
 //! # use rusted_cypher::cypher::Statement;
 //! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-//!
 //! let mut query = graph.cypher().query();
 //!
 //! // Statement implements From<&str>
@@ -49,10 +48,12 @@
 //! query.send().unwrap();
 //!
 //! graph.cypher().exec(
-//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })"
-//! ).unwrap();
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })")
+//!     .unwrap();
 //!
-//! let result = graph.cypher().exec("MATCH (n:LANG) RETURN n.name, n.level, n.safe").unwrap();
+//! let result = graph.cypher().exec(
+//!     "MATCH (n:LANG) RETURN n.name, n.level, n.safe")
+//!     .unwrap();
 //!
 //! assert_eq!(result[0].data.len(), 3);
 //!
