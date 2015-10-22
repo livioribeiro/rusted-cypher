@@ -1,3 +1,7 @@
+# 0.5
+
+  - Changed crate name to `rusted-cypher`.
+
 # 0.4.1
 
   - Updated `serde_macros` and `serde_codegen` to version 0.6.

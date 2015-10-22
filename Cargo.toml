@@ -1,6 +1,6 @@
 [package]
-name = "rusted_cypher"
-version = "0.4.1"
+name = "rusted-cypher"
+version = "0.5.0"
 authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
@@ -9,6 +9,9 @@ readme = "README.md"
 keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT"
 build = "build.rs"
+
+[lib]
+name = "rusted_cypher"
 
 [features]
 default = ["serde_codegen"]

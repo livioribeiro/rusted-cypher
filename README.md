@@ -1,4 +1,10 @@
-# rusted_cypher
+# rusted-cypher
+
+**ATTENTION!** As version `0.5`, the crate name has changed to `rusted-cypher` (dash instead of underscore).
+Previous versions were named `rusted_cypher`.
+Library name is is still `rusted_cypher`, though.
+
+---
 
 Rust crate for accessing the cypher endpoint of a neo4j server
 
