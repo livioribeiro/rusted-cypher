@@ -177,20 +177,25 @@ impl Cypher {
     /// // `&str` implements `Into<Statement>`
     /// let result = cypher.exec("match n return n");
     /// # let result = result.unwrap();
-    /// # assert_eq!(result[0].columns.len(), 1);
-    /// # assert_eq!(result[0].columns[0], "n");
+    /// # assert_eq!(result.columns.len(), 1);
+    /// # assert_eq!(result.columns[0], "n");
     /// // Creating `Statement` by hand
     /// let statement = Statement::new("match n return n");
     /// let result = cypher.exec(statement);
     /// # let result = result.unwrap();
-    /// # assert_eq!(result[0].columns.len(), 1);
-    /// # assert_eq!(result[0].columns[0], "n");
+    /// # assert_eq!(result.columns.len(), 1);
+    /// # assert_eq!(result.columns[0], "n");
     /// ```
-    pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<Vec<CypherResult>, GraphError> {
+    pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
         let mut query = self.query();
         query.add_statement(statement);
 
-        query.send()
+        let mut results = try!(query.send());
+
+        match results.pop() {
+            Some(result) => Ok(result),
+            None => Err(GraphError::new("No results returned from server")),
+        }
     }
 
     pub fn transaction(&self) -> Transaction<self::transaction::Created> {
@@ -252,6 +257,7 @@ impl<'a> CypherQuery<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::cypher::result::Row;
 
     #[derive(Serialize, Deserialize)]
     struct ComplexType {
@@ -281,8 +287,8 @@ mod tests {
     fn query_without_params() {
         let result = get_cypher().exec("match n return n").unwrap();
 
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0], "n");
     }
 
     #[test]
@@ -291,8 +297,9 @@ mod tests {
             .with_param("name", "Neo");
 
         let result = get_cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
+
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0], "n");
     }
 
     #[test]
@@ -301,8 +308,9 @@ mod tests {
             .with_param("value", 42);
 
         let result = get_cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
+
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0], "n");
     }
 
     #[test]
@@ -320,12 +328,13 @@ mod tests {
         let result = cypher.exec(statement);
         assert!(result.is_ok());
 
-        let result = cypher.exec("match (n:CYPHER_COMPLEX_PARAM) return n").unwrap();
-        for row in result[0].rows() {
-            let complex_result = row.get::<ComplexType>("n").unwrap();
-            assert_eq!(complex_result.name, "Complex");
-            assert_eq!(complex_result.value, 42);
-        }
+        let results = cypher.exec("match (n:CYPHER_COMPLEX_PARAM) return n").unwrap();
+        let rows: Vec<Row> = results.rows().take(1).collect();
+        let row = rows.first().unwrap();
+
+        let complex_result: ComplexType = row.get("n").unwrap();
+        assert_eq!(complex_result.name, "Complex");
+        assert_eq!(complex_result.value, 42);
 
         cypher.exec("match (n:CYPHER_COMPLEX_PARAM) delete n").unwrap();
     }
@@ -337,8 +346,8 @@ mod tests {
             .with_param("value", 42);
 
         let result = get_cypher().exec(statement).unwrap();
-        assert_eq!(result[0].columns.len(), 1);
-        assert_eq!(result[0].columns[0], "n");
+        assert_eq!(result.columns.len(), 1);
+        assert_eq!(result.columns[0], "n");
     }
 
     #[test]

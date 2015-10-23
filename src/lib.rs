@@ -55,9 +55,9 @@
 //!     "MATCH (n:LANG) RETURN n.name, n.level, n.safe")
 //!     .unwrap();
 //!
-//! assert_eq!(result[0].data.len(), 3);
+//! assert_eq!(result.data.len(), 3);
 //!
-//! for row in result[0].rows() {
+//! for row in result.rows() {
 //!     let name: String = row.get("n.name").unwrap();
 //!     let level: String = row.get("n.level").unwrap();
 //!     let safeness: bool = row.get("n.safe").unwrap();

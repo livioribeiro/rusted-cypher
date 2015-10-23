@@ -2,6 +2,7 @@
 
   - Changed crate name to `rusted-cypher`.
   - Added integration tests.
+  - BC: `Cypher::exec` returns single `CypherResult` instead of `Vec<CypherResult>`
 
 # 0.4.1
 

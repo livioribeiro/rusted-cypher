@@ -1,3 +1,10 @@
+#![cfg(feature = "serde_macros")]
+#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
+#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
+
+extern crate serde;
+extern crate rusted_cypher;
+
 use rusted_cypher::{GraphClient, Statement};
 use rusted_cypher::cypher::result::Row;
 
@@ -30,7 +37,7 @@ fn save_retrieve_struct() {
         .with_param("lang", &rust);
 
     let results = client.cypher().exec(statement).unwrap();
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -63,7 +70,7 @@ fn transaction_create_on_begin_commit() {
         .exec("MATCH (n:NTLY_INTG_TEST_2) RETURN n")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -96,7 +103,7 @@ fn transaction_create_after_begin_commit() {
         .exec("MATCH (n:NTLY_INTG_TEST_3) RETURN n")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -128,7 +135,7 @@ fn transaction_create_on_commit() {
         .exec("MATCH (n:NTLY_INTG_TEST_4) RETURN n")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -174,7 +181,7 @@ fn transaction_create_on_begin_rollback() {
         .exec("MATCH (n:NTLY_INTG_TEST_5) RETURN n")
         .unwrap();
 
-    assert_eq!(0, results[0].rows().count());
+    assert_eq!(0, results.rows().count());
 }
 
 #[test]
@@ -213,5 +220,5 @@ fn transaction_create_after_begin_rollback() {
         .exec("MATCH (n:NTLY_INTG_TEST_6) RETURN n")
         .unwrap();
 
-    assert_eq!(0, results[0].rows().count());
+    assert_eq!(0, results.rows().count());
 }

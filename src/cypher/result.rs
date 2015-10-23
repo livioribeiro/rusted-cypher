@@ -9,12 +9,12 @@ pub trait ResultTrait {
     fn errors(&self) -> &Vec<Neo4jError>;
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RowResult {
     row: Vec<Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CypherResult {
     pub columns: Vec<String>,
     pub data: Vec<RowResult>,

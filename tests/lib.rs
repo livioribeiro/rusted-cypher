@@ -1,11 +1,5 @@
-#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
-
 extern crate serde;
 extern crate rusted_cypher;
-
-#[cfg(feature = "serde_macros")]
-mod nightly;
 
 use rusted_cypher::{GraphClient, Statement};
 use rusted_cypher::cypher::result::Row;
@@ -23,9 +17,8 @@ fn save_retrive_values() {
         .with_param("safe", true);
 
     let results = client.cypher().exec(statement).unwrap();
-    assert_eq!(1, results.len());
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let name: String = row.get("n.name").unwrap();
@@ -58,7 +51,7 @@ fn transaction_create_on_begin_commit() {
         .exec("MATCH (n:INTG_TEST_2) RETURN n.name, n.level, n.safe")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let name: String = row.get("n.name").unwrap();
@@ -91,7 +84,7 @@ fn transaction_create_after_begin_commit() {
         .exec("MATCH (n:INTG_TEST_3) RETURN n.name, n.level, n.safe")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let name: String = row.get("n.name").unwrap();
@@ -123,7 +116,7 @@ fn transaction_create_on_commit() {
         .exec("MATCH (n:INTG_TEST_4) RETURN n.name, n.level, n.safe")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let name: String = row.get("n.name").unwrap();
@@ -173,7 +166,7 @@ fn transaction_create_on_begin_rollback() {
         .exec("MATCH (n:INTG_TEST_5) RETURN n")
         .unwrap();
 
-    assert_eq!(0, results[0].rows().count());
+    assert_eq!(0, results.rows().count());
 }
 
 #[test]
@@ -212,5 +205,5 @@ fn transaction_create_after_begin_rollback() {
         .exec("MATCH (n:INTG_TEST_6) RETURN n")
         .unwrap();
 
-    assert_eq!(0, results[0].rows().count());
+    assert_eq!(0, results.rows().count());
 }

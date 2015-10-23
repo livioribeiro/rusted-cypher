@@ -2,7 +2,7 @@
 
 **ATTENTION!** As version `0.5`, the crate name has changed to `rusted-cypher` (dash instead of underscore).
 Previous versions were named `rusted_cypher`.
-Library name is is still `rusted_cypher`, though.
+Library name is is still `rusted_cypher`.
 
 ---
 
@@ -60,9 +60,9 @@ let result = graph.cypher().exec(
     "MATCH (n:LANG) RETURN n.name, n.level, n.safe")
     .unwrap();
 
-assert_eq!(result[0].data.len(), 3);
+assert_eq!(result.data.len(), 3);
 
-for row in result[0].rows() {
+for row in result.rows() {
     let name: String = row.get("n.name").unwrap();
     let level: String = row.get("n.level").unwrap();
     let safeness: bool = row.get("n.safe").unwrap();
