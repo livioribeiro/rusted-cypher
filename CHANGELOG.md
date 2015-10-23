@@ -1,6 +1,7 @@
 # 0.5
 
   - Changed crate name to `rusted-cypher`.
+  - Added integration tests.
 
 # 0.4.1
 
