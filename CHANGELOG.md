@@ -1,6 +1,5 @@
 # 0.5
 
-  - Changed crate name to `rusted-cypher`.
   - Added integration tests.
   - BC: `Cypher::exec` returns single `CypherResult` instead of `Vec<CypherResult>`.
   - BC: Cannot move value in `Statement::with_param` and `Statement::add_param`.
