@@ -1,8 +1,7 @@
 # rusted-cypher
 
-**ATTENTION!** As version `0.5`, the crate name has changed to `rusted-cypher` (dash instead of underscore).
+**ATTENTION!** As of version `0.5`, package name has changed to `rusted-cypher` (dash instead of underscore).
 Previous versions were named `rusted_cypher`.
-Library name is is still `rusted_cypher`.
 
 ---
 
@@ -76,14 +75,14 @@ graph.cypher().exec("MATCH (n:LANG) DELETE n").unwrap();
 
 ```rust
 let transaction = graph.cypher().transaction()
-    .with_statement("CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
+    .with_statement("CREATE (n:IN_TRANSACTION { name: 'Rust', level: 'low', safe: true })");
 
 let (mut transaction, results) = transaction.begin().unwrap();
 
-transaction.add_statement("CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
+transaction.add_statement("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })");
 transaction.exec().unwrap();
 
-let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
+let stmt = Statement::new("MATCH (n:IN_TRANSACTION) WHERE (n.safe = {safeness}) RETURN n")
     .with_param("safeness", true);
 
 transaction.add_statement(stmt);
