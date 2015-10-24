@@ -75,14 +75,14 @@
 //! # use rusted_cypher::cypher::Statement;
 //! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //! let transaction = graph.cypher().transaction()
-//!     .with_statement("CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
+//!     .with_statement("CREATE (n:IN_TRANSACTION { name: 'Rust', level: 'low', safe: true })");
 //!
 //! let (mut transaction, results) = transaction.begin().unwrap();
 //!
-//! transaction.add_statement("CREATE (n:LANG { name: 'Python', level: 'high', safe: true })");
+//! transaction.add_statement("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })");
 //! transaction.exec().unwrap();
 //!
-//! let stmt = Statement::new("MATCH (n:LANG) WHERE (n.safe = {safeness}) RETURN n")
+//! let stmt = Statement::new("MATCH (n:IN_TRANSACTION) WHERE (n.safe = {safeness}) RETURN n")
 //!     .with_param("safeness", true);
 //!
 //! transaction.add_statement(stmt);

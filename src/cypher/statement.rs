@@ -58,12 +58,12 @@ mod tests {
     #[test]
     #[allow(unused_variables)]
     fn from_str() {
-        let stmt = Statement::new("match n return n");
+        let stmt = Statement::new("MATCH n RETURN n");
     }
 
     #[test]
     fn with_param() {
-        let statement = Statement::new("match n return n")
+        let statement = Statement::new("MATCH n RETURN n")
             .with_param("param1", "value1")
             .with_param("param2", 2)
             .with_param("param3", 3.0)
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn add_param() {
-        let mut statement = Statement::new("match n return n");
+        let mut statement = Statement::new("MATCH n RETURN n");
         statement.add_param("param1", "value1");
         statement.add_param("param2", 2);
         statement.add_param("param3", 3.0);
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn remove_param() {
-        let mut statement = Statement::new("match n return n")
+        let mut statement = Statement::new("MATCH n RETURN n")
             .with_param("param1", "value1")
             .with_param("param2", 2)
             .with_param("param3", 3.0)

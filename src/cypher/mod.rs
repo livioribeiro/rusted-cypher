@@ -27,10 +27,10 @@
 //!
 //! let cypher = Cypher::new(url, headers);
 //!
-//! cypher.exec("create (n:CYPHER_QUERY {value: 1})").unwrap();
+//! cypher.exec("CREATE (n:CYPHER_QUERY {value: 1})").unwrap();
 //!
 //! let mut query = cypher.query();
-//! query.add_statement("match (n:CYPHER_QUERY) return n.value as value");
+//! query.add_statement("MATCH (n:CYPHER_QUERY) RETURN n.value as value");
 //!
 //! let result = query.send().unwrap();
 //!
@@ -38,7 +38,7 @@
 //!     let value: i32 = row.get("value").unwrap();
 //!     assert_eq!(value, 1);
 //! }
-//! # cypher.exec("match (n:CYPHER_QUERY) delete n");
+//! # cypher.exec("MATCH (n:CYPHER_QUERY) delete n");
 //! # }
 //! ```
 
@@ -52,7 +52,6 @@ pub use self::result::CypherResult;
 
 use std::convert::Into;
 use std::collections::BTreeMap;
-use std::error::Error;
 use hyper::client::{Client, Response};
 use hyper::header::Headers;
 use url::Url;
@@ -61,8 +60,8 @@ use serde_json::{self, Value};
 use serde_json::de as json_de;
 use serde_json::value as json_value;
 
-use self::result::ResultTrait;
-use ::error::{GraphError, Neo4jError};
+use self::result::{QueryResult, ResultTrait};
+use ::error::GraphError;
 
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
     -> Result<Response, GraphError> {
@@ -104,22 +103,6 @@ fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T,
     Ok(result)
 }
 
-#[derive(Debug, Deserialize)]
-struct QueryResult {
-    results: Vec<CypherResult>,
-    errors: Vec<Neo4jError>,
-}
-
-impl ResultTrait for QueryResult {
-    fn results(&self) -> &Vec<CypherResult> {
-        &self.results
-    }
-
-    fn errors(&self) -> &Vec<Neo4jError> {
-        &self.errors
-    }
-}
-
 /// Represents the cypher endpoint of a neo4j server
 ///
 /// The `Cypher` struct holds information about the cypher enpoint. It is used to create the queries
@@ -155,7 +138,6 @@ impl Cypher {
         &self.headers
     }
 
-    /// Creates a new `CypherQuery`
     pub fn query(&self) -> CypherQuery {
         CypherQuery {
             statements: Vec::new(),
@@ -165,7 +147,7 @@ impl Cypher {
 
     /// Executes the given `Statement`
     ///
-    /// Parameter can be anything that implements `Into<Statement>`, `&str` or or `Statement` itself
+    /// Parameter can be anything that implements `Into<Statement>`, `&str` or `Statement` itself
     ///
     /// # Examples
     ///
@@ -175,12 +157,12 @@ impl Cypher {
     /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
     /// # let cypher = graph.cypher();
     /// // `&str` implements `Into<Statement>`
-    /// let result = cypher.exec("match n return n");
+    /// let result = cypher.exec("MATCH n RETURN n");
     /// # let result = result.unwrap();
     /// # assert_eq!(result.columns.len(), 1);
     /// # assert_eq!(result.columns[0], "n");
     /// // Creating `Statement` by hand
-    /// let statement = Statement::new("match n return n");
+    /// let statement = Statement::new("MATCH n RETURN n");
     /// let result = cypher.exec(statement);
     /// # let result = result.unwrap();
     /// # assert_eq!(result.columns.len(), 1);
@@ -216,16 +198,11 @@ pub struct CypherQuery<'a> {
 
 impl<'a> CypherQuery<'a> {
     /// Adds statements in builder like style
-    ///
-    /// The parameter must implement `Into<Statement>` trait
     pub fn with_statement<T: Into<Statement>>(mut self, statement: T) -> Self {
         self.add_statement(statement);
         self
     }
 
-    /// Adds a statement to the query
-    ///
-    /// The parameter must implement `Into<Statement>` trait
     pub fn add_statement<T: Into<Statement>>(&mut self, statement: T) {
         self.statements.push(statement.into());
     }
@@ -237,8 +214,7 @@ impl<'a> CypherQuery<'a> {
     /// Sends the query to the server
     ///
     /// The statements contained in the query are sent to the server and the results are parsed
-    /// into a `Vec<CypherResult>` in order to match the response of the neo4j api. If there is an
-    /// error, a `GraphError` is returned.
+    /// into a `Vec<CypherResult>` in order to match the response of the neo4j api.
     pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
         let client = self.cypher.client();
         let endpoint = format!("{}/{}", self.cypher.endpoint(), "commit");
@@ -285,7 +261,7 @@ mod tests {
 
     #[test]
     fn query_without_params() {
-        let result = get_cypher().exec("match n return n").unwrap();
+        let result = get_cypher().exec("MATCH (n:TEST_CYPHER) RETURN n").unwrap();
 
         assert_eq!(result.columns.len(), 1);
         assert_eq!(result.columns[0], "n");
@@ -293,7 +269,7 @@ mod tests {
 
     #[test]
     fn query_with_string_param() {
-        let statement = Statement::new("match (n {name: {name}}) return n")
+        let statement = Statement::new("MATCH (n:TEST_CYPHER {name: {name}}) RETURN n")
             .with_param("name", "Neo");
 
         let result = get_cypher().exec(statement).unwrap();
@@ -304,7 +280,7 @@ mod tests {
 
     #[test]
     fn query_with_int_param() {
-        let statement = Statement::new("match (n {value: {value}}) return n")
+        let statement = Statement::new("MATCH (n:TEST_CYPHER {value: {value}}) RETURN n")
             .with_param("value", 42);
 
         let result = get_cypher().exec(statement).unwrap();
@@ -322,13 +298,13 @@ mod tests {
             value: 42,
         };
 
-        let statement = Statement::new("create (n:CYPHER_COMPLEX_PARAM {p})")
+        let statement = Statement::new("CREATE (n:TEST_CYPHER_COMPLEX_PARAM {p})")
             .with_param("p", complex_param);
 
         let result = cypher.exec(statement);
         assert!(result.is_ok());
 
-        let results = cypher.exec("match (n:CYPHER_COMPLEX_PARAM) return n").unwrap();
+        let results = cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) RETURN n").unwrap();
         let rows: Vec<Row> = results.rows().take(1).collect();
         let row = rows.first().unwrap();
 
@@ -336,12 +312,12 @@ mod tests {
         assert_eq!(complex_result.name, "Complex");
         assert_eq!(complex_result.value, 42);
 
-        cypher.exec("match (n:CYPHER_COMPLEX_PARAM) delete n").unwrap();
+        cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) DELETE n").unwrap();
     }
 
     #[test]
     fn query_with_multiple_params() {
-        let statement = Statement::new("match (n {name: {name}}) where n.value = {value} return n")
+        let statement = Statement::new("MATCH (n:TEST_CYPHER {name: {name}}) WHERE n.value = {value} RETURN n")
             .with_param("name", "Neo")
             .with_param("value", 42);
 
@@ -353,14 +329,14 @@ mod tests {
     #[test]
     fn multiple_queries() {
         let cypher = get_cypher();
-        let statement1 = Statement::new("match n return n");
-        let statement2 = Statement::new("match n return n");
+        let statement1 = Statement::new("MATCH (n:TEST_CYPHER) RETURN n");
+        let statement2 = Statement::new("MATCH (n:TEST_CYPHER) RETURN n");
 
         let query = cypher.query()
             .with_statement(statement1)
             .with_statement(statement2);
 
-        let result = query.send().unwrap();
-        assert_eq!(result.len(), 2);
+        let results = query.send().unwrap();
+        assert_eq!(results.len(), 2);
     }
 }

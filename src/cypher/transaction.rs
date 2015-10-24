@@ -244,19 +244,19 @@ mod tests {
         let headers = get_headers();
 
         let transaction = Transaction::new(URL, &headers)
-            .with_statement("create (n:CREATE_COMMIT { name: 'Rust', safe: true })");
+            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_COMMIT { name: 'Rust', safe: true })");
         let (transaction, _) = transaction.begin().unwrap();
         transaction.commit().unwrap();
 
         let transaction = Transaction::new(URL, &headers)
-            .with_statement("match (n:CREATE_COMMIT) return n");
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) RETURN n");
         let (transaction, results) = transaction.begin().unwrap();
 
         assert_eq!(results[0].data.len(), 1);
         transaction.commit().unwrap();
 
         let transaction = Transaction::new(URL, &headers)
-            .with_statement("match (n:CREATE_COMMIT) delete n");
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) DELETE n");
         let (transaction, _) = transaction.begin().unwrap();
         transaction.commit().unwrap();
     }
@@ -266,12 +266,12 @@ mod tests {
         let headers = get_headers();
 
         let transaction = Transaction::new(URL, &headers)
-            .with_statement("create (n:CREATE_ROLLBACK { name: 'Rust', safe: true })");
+            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_ROLLBACK { name: 'Rust', safe: true })");
         let (transaction, _) = transaction.begin().unwrap();
         transaction.rollback().unwrap();
 
         let transaction = Transaction::new(URL, &headers)
-            .with_statement("match (n:CREATE_ROLLBACK) return n");
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_ROLLBACK) RETURN n");
         let (transaction, results) = transaction.begin().unwrap();
 
         assert_eq!(results[0].data.len(), 0);
@@ -285,7 +285,7 @@ mod tests {
         let (mut transaction, _) = Transaction::new(URL, &headers).begin().unwrap();
 
         let results = transaction
-            .with_statement("create (n:QUERY_OPEN { name: 'Rust', safe: true }) return n")
+            .with_statement("CREATE (n:TEST_TRANSACTION_QUERY_OPEN { name: 'Rust', safe: true }) RETURN n")
             .exec()
             .unwrap();
 

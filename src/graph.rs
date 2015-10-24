@@ -7,7 +7,8 @@ use serde_json::{self, Value};
 use semver::Version;
 
 use cypher::Cypher;
-use error::{GraphError, Neo4jError};
+use error::GraphError;
+use cypher::result::{QueryResult, ResultTrait};
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -28,28 +29,14 @@ pub struct ServiceRoot {
 }
 
 fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
-    let service_root: ServiceRoot = match serde_json::de::from_str(json_string) {
-        Ok(value) => value,
-        Err(e) => {
-            let error_response: Value = try!(serde_json::de::from_str(json_string));
-            match error_response.find("errors") {
-                Some(e) => {
-                    let mut errors = Vec::new();
-                    for error in e.as_array().unwrap() {
-                        errors.push({
-                            Neo4jError {
-                                message: error.find("message").unwrap().as_string().unwrap().to_owned(),
-                                code: error.find("code").unwrap().as_string().unwrap().to_owned(),
-                            }
-                        });
-                    }
-                    return Err(GraphError::new_neo4j_error(errors))
-                },
-                None => return Err(GraphError::new_error(Box::new(e)))
-            }
+    let result = serde_json::de::from_str::<ServiceRoot>(json_string);
+
+    result.map_err(|_| {
+        match serde_json::de::from_str::<QueryResult>(json_string) {
+            Ok(result) => GraphError::new_neo4j_error(result.errors().clone()),
+            Err(e) => GraphError::new_error(Box::new(e)),
         }
-    };
-    Ok(service_root)
+    })
 }
 
 #[allow(dead_code)]
@@ -62,7 +49,6 @@ pub struct GraphClient {
 }
 
 impl GraphClient {
-    /// Connects to the neo4j server
     pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
         let url = match Url::parse(endpoint) {
             Ok(url) => url,
@@ -122,7 +108,7 @@ impl GraphClient {
         &self.neo4j_version
     }
 
-    /// Gets a reference to the `Cypher` instance of the `GraphClient`
+    /// Returns a reference to the `Cypher` instance of the `GraphClient`
     pub fn cypher(&self) -> &Cypher {
         &self.cypher
     }
@@ -147,7 +133,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut query = graph.cypher().query();
-        query.add_statement("match n return n");
+        query.add_statement("MATCH n RETURN n");
 
         let result = query.send().unwrap();
 
@@ -160,7 +146,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let (transaction, result) = graph.cypher().transaction()
-            .with_statement("match n return n")
+            .with_statement("MATCH n RETURN n")
             .begin()
             .unwrap();
 
