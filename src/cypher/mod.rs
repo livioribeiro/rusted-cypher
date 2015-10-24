@@ -299,7 +299,7 @@ mod tests {
         };
 
         let statement = Statement::new("CREATE (n:TEST_CYPHER_COMPLEX_PARAM {p})")
-            .with_param("p", complex_param);
+            .with_param("p", &complex_param);
 
         let result = cypher.exec(statement);
         assert!(result.is_ok());

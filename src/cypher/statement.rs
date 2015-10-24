@@ -17,9 +17,13 @@ impl Statement  {
         }
     }
 
-    pub fn with_param<V: Serialize>(mut self, key: &str, value: V) -> Self {
+    pub fn with_param<V: Serialize + Copy>(mut self, key: &str, value: V) -> Self {
         self.add_param(key, value);
         self
+    }
+
+    pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
+        self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
     }
 
     pub fn get_params(&self) -> &BTreeMap<String, Value> {
@@ -34,10 +38,6 @@ impl Statement  {
         }
 
         self.parameters = _params;
-    }
-
-    pub fn add_param<V: Serialize>(&mut self, key: &str, value: V) {
-        self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
     }
 
     pub fn remove_param(&mut self, key: &str) {
