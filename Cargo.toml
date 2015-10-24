@@ -10,9 +10,6 @@ keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT"
 build = "build.rs"
 
-[lib]
-name = "rusted_cypher"
-
 [features]
 default = ["serde_codegen"]
 nightly = ["serde_macros"]
