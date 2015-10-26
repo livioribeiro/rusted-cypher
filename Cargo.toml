@@ -5,6 +5,7 @@ authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
 homepage = "https://github.com/livioribeiro/rusted-cypher"
+documentation = "http://livioribeiro.github.io/projects/rusted_cypher/rusted_cypher/index.html"
 readme = "README.md"
 keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT"
