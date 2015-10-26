@@ -1,8 +1,14 @@
+# 0.6
+
+  - BC: Changed `Transaction<Started>` api to match `Cypher` and `CypherQuery`
+    - `Transaction<Started>::send` executes multiple queries like `CypherQuery::send`
+    - `Transaction<Started>::exec` executes a single query like `Cypher::exec`
+
 # 0.5
 
+  - Changed crate name to `rusted-cypher`.
   - Added integration tests.
-  - BC: `Cypher::exec` returns single `CypherResult` instead of `Vec<CypherResult>`.
-  - BC: Cannot move value in `Statement::with_param` and `Statement::add_param`.
+  - BC: `Cypher::exec` returns single `CypherResult` instead of `Vec<CypherResult>`
 
 # 0.4.1
 

@@ -7,8 +7,6 @@ driver for a relational database.
 
 You can execute queries inside a transaction or simply execute queries that commit immediately.
 
-It MAY be extended to support other resources of the neo4j REST api.
-
 ## Examples
 
 Code in examples are assumed to be wrapped in:
@@ -74,14 +72,16 @@ let transaction = graph.cypher().transaction()
 
 let (mut transaction, results) = transaction.begin().unwrap();
 
-transaction.add_statement("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })");
-transaction.exec().unwrap();
+// Use `exec` to execute a single statement
+transaction.exec("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })")
+    .unwrap();
 
+// use `add_statement` (or `with_statement`) and `send` to executes multiple statements
 let stmt = Statement::new("MATCH (n:IN_TRANSACTION) WHERE (n.safe = {safeness}) RETURN n")
     .with_param("safeness", true);
 
 transaction.add_statement(stmt);
-let results = transaction.exec().unwrap();
+let results = transaction.send().unwrap();
 
 assert_eq!(results[0].data.len(), 2);
 

@@ -1,34 +1,81 @@
 //! Transaction management through neo4j's transaction endpoint
 //!
+//! The recommended way to start a transaction is through the `GraphClient`
+//!
 //! # Examples
 //!
+//! ## Starting a transaction
 //! ```
-//! # extern crate hyper;
-//! # extern crate rusted_cypher;
-//! # use hyper::header::{Authorization, Basic, ContentType, Headers};
-//! # use rusted_cypher::Statement;
-//! # use rusted_cypher::cypher::Transaction;
-//! # fn main() {
-//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data/transaction";
-//! # let mut headers = Headers::new();
-//! # headers.set(Authorization(
-//! #     Basic {
-//! #         username: "neo4j".to_owned(),
-//! #         password: Some("neo4j".to_owned()),
-//! #     }
-//! # ));
-//! # headers.set(ContentType::json());
-//! let transaction = Transaction::new(URL, &headers)
-//!     .with_statement("CREATE (n:TRANSACTION)");
+//! # #![allow(unused_variables)]
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! let graph = GraphClient::connect(URL).unwrap();
 //!
-//! let (mut transaction, _) = transaction.begin().unwrap();
-//!
+//! let mut transaction = graph.cypher().transaction();
 //! transaction.add_statement("MATCH (n:TRANSACTION) RETURN n");
-//! let results = transaction.exec().unwrap();
-//! assert_eq!(results[0].data.len(), 1);
 //!
+//! let (transaction, results) = transaction.begin().unwrap();
+//! # transaction.rollback().unwrap();
+//! ```
+//!
+//! ## Statement is optional when beggining a transaction
+//! ```
+//! # #![allow(unused_variables)]
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! let (transaction, _) = graph.cypher().transaction()
+//!     .begin().unwrap();
+//! # transaction.rollback().unwrap();
+//! ```
+//!
+//! ## Send queries in a started transaction
+//! ```
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+//! // Send a single query
+//! let result = transaction.exec("MATCH (n:TRANSACTION) RETURN n").unwrap();
+//!
+//! // Send multiple queries
+//! let results = transaction
+//!     .with_statement("MATCH (n:TRANSACTION) RETURN n")
+//!     .with_statement("MATCH (n:OTHER_TRANSACTION) RETURN n")
+//!     .send().unwrap();
+//! # assert_eq!(results.len(), 2);
+//! # transaction.rollback().unwrap();
+//! ```
+//!
+//! ## Commit a transaction
+//! ```
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+//! transaction.exec("CREATE (n:TRANSACTION)").unwrap();
+//! transaction.commit().unwrap();
+//!
+//! // Send more statements when commiting
+//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+//! let results = transaction
+//!     .with_statement("MATCH (n:TRANSACTION) RETURN n")
+//!     .send().unwrap();
+//! # assert_eq!(results[0].data.len(), 1);
+//! # transaction.rollback().unwrap();
+//! # graph.cypher().exec("MATCH (n:TRANSACTION) DELETE n").unwrap();
+//! ```
+//!
+//! ## Rollback a transaction
+//! ```
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+//! transaction.exec("CREATE (n:TRANSACTION)").unwrap();
 //! transaction.rollback().unwrap();
-//! # }
+//! # let result = graph.cypher().exec("MATCH (n:TRANSACTION) RETURN n").unwrap();
+//! # assert_eq!(result.data.len(), 0);
 //! ```
 
 use std::any::Any;
@@ -168,7 +215,20 @@ impl<'a> Transaction<'a, Started> {
         self
     }
 
-    pub fn exec(&mut self) -> Result<Vec<CypherResult>, GraphError> {
+    /// Executes the given statement
+    ///
+    /// Any statements added via `add_statement` or `with_statement` will be discarded
+    pub fn exec<S: Into<Statement>>(&mut self, statement: S) -> Result<CypherResult, GraphError> {
+        self.statements.clear();
+        self.add_statement(statement);
+
+        let mut results = try!(self.send());
+        let result = try!(results.pop().ok_or(GraphError::new("Server returned no results")));
+
+        Ok(result)
+    }
+
+    pub fn send(&mut self) -> Result<Vec<CypherResult>, GraphError> {
         let mut res = try!(super::send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
         self.statements.clear();
 
@@ -243,39 +303,48 @@ mod tests {
     fn create_node_and_commit() {
         let headers = get_headers();
 
-        let transaction = Transaction::new(URL, &headers)
-            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_COMMIT { name: 'Rust', safe: true })");
-        let (transaction, _) = transaction.begin().unwrap();
-        transaction.commit().unwrap();
+        Transaction::new(URL, &headers)
+            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_COMMIT { name: 'Rust', safe: true })")
+            .begin().unwrap()
+            .0.commit().unwrap();
 
-        let transaction = Transaction::new(URL, &headers)
-            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) RETURN n");
-        let (transaction, results) = transaction.begin().unwrap();
+        let (transaction, results) = Transaction::new(URL, &headers)
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) RETURN n")
+            .begin().unwrap();
 
         assert_eq!(results[0].data.len(), 1);
-        transaction.commit().unwrap();
 
-        let transaction = Transaction::new(URL, &headers)
-            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) DELETE n");
-        let (transaction, _) = transaction.begin().unwrap();
-        transaction.commit().unwrap();
+        transaction.rollback().unwrap();
+
+        Transaction::new(URL, &headers)
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_COMMIT) DELETE n")
+            .begin().unwrap()
+            .0.commit().unwrap();
     }
 
     #[test]
     fn create_node_and_rollback() {
         let headers = get_headers();
 
-        let transaction = Transaction::new(URL, &headers)
-            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_ROLLBACK { name: 'Rust', safe: true })");
-        let (transaction, _) = transaction.begin().unwrap();
+        let (mut transaction, _) = Transaction::new(URL, &headers)
+            .with_statement("CREATE (n:TEST_TRANSACTION_CREATE_ROLLBACK { name: 'Rust', safe: true })")
+            .begin().unwrap();
+
+        let result = transaction
+            .exec("MATCH (n:TEST_TRANSACTION_CREATE_ROLLBACK) RETURN n")
+            .unwrap();
+
+        assert_eq!(result.data.len(), 1);
+
         transaction.rollback().unwrap();
 
-        let transaction = Transaction::new(URL, &headers)
-            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_ROLLBACK) RETURN n");
-        let (transaction, results) = transaction.begin().unwrap();
+        let (transaction, results) = Transaction::new(URL, &headers)
+            .with_statement("MATCH (n:TEST_TRANSACTION_CREATE_ROLLBACK) RETURN n")
+            .begin().unwrap();
 
         assert_eq!(results[0].data.len(), 0);
-        transaction.commit().unwrap();
+
+        transaction.rollback().unwrap();
     }
 
     #[test]
@@ -284,12 +353,12 @@ mod tests {
 
         let (mut transaction, _) = Transaction::new(URL, &headers).begin().unwrap();
 
-        let results = transaction
-            .with_statement("CREATE (n:TEST_TRANSACTION_QUERY_OPEN { name: 'Rust', safe: true }) RETURN n")
-            .exec()
+        let result = transaction
+            .exec(
+                "CREATE (n:TEST_TRANSACTION_QUERY_OPEN { name: 'Rust', safe: true }) RETURN n")
             .unwrap();
 
-        assert_eq!(results[0].data.len(), 1);
+        assert_eq!(result.data.len(), 1);
 
         transaction.rollback().unwrap();
     }

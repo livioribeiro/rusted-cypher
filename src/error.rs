@@ -69,25 +69,41 @@ impl Error for GraphError {
 
 impl From<FromUtf8Error> for GraphError {
     fn from(error: FromUtf8Error) -> Self {
-        GraphError::new_error(Box::new(error))
+        GraphError {
+            message: "FromUtf8Error".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(error)),
+        }
     }
 }
 
 impl From<url::ParseError> for GraphError {
     fn from(error: url::ParseError) -> Self {
-        GraphError::new_error(Box::new(error))
+        GraphError {
+            message: "url::ParseError".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(error)),
+        }
     }
 }
 
 impl From<hyper::error::Error> for GraphError {
     fn from(error: hyper::error::Error) -> Self {
-        GraphError::new_error(Box::new(error))
+        GraphError {
+            message: "hyper::error::Error".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(error)),
+        }
     }
 }
 
 impl From<serde_json::error::Error> for GraphError {
     fn from(error: serde_json::error::Error) -> Self {
-        GraphError::new_error(Box::new(error))
+        GraphError {
+            message: "serde_json::error::Error".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(error)),
+        }
     }
 }
 
@@ -108,6 +124,10 @@ impl Error for TimeParseError {
 
 impl From<time::ParseError> for GraphError {
     fn from(error: time::ParseError) -> Self {
-        GraphError::new_error(Box::new(TimeParseError(error, format!("{}", error))))
+        GraphError {
+            message: "time::ParseError".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(TimeParseError(error, format!("{}", error)))),
+        }
     }
 }

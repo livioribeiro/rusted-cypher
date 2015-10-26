@@ -31,12 +31,12 @@ fn save_retrieve_struct() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new("CREATE (n:NTLY_INTG_TEST_1 {lang}) RETURN n")
         .with_param("lang", &rust);
 
-    let results = client.cypher().exec(statement).unwrap();
+    let results = graph.cypher().exec(statement).unwrap();
     let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
@@ -44,7 +44,7 @@ fn save_retrieve_struct() {
 
     assert_eq!(rust, lang);
 
-    client.cypher().exec("MATCH (n:NTLY_INTG_TEST_1) DELETE n").unwrap();
+    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_1) DELETE n").unwrap();
 }
 
 #[test]
@@ -55,18 +55,18 @@ fn transaction_create_on_begin_commit() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_2 {lang})")
         .with_param("lang", &rust);
 
-    client.cypher().transaction()
+    graph.cypher().transaction()
         .with_statement(statement)
         .begin().unwrap()
         .0.commit().unwrap();
 
-    let results = client.cypher()
+    let results = graph.cypher()
         .exec("MATCH (n:NTLY_INTG_TEST_2) RETURN n")
         .unwrap();
 
@@ -77,7 +77,7 @@ fn transaction_create_on_begin_commit() {
 
     assert_eq!(rust, lang);
 
-    client.cypher().exec("MATCH (n:NTLY_INTG_TEST_2) DELETE n").unwrap();
+    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_2) DELETE n").unwrap();
 }
 
 #[test]
@@ -88,18 +88,17 @@ fn transaction_create_after_begin_commit() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
+    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_3 {lang})")
         .with_param("lang", &rust);
 
-    let (mut transaction, _) = client.cypher().transaction().begin().unwrap();
-    transaction.add_statement(statement);
-    transaction.exec().unwrap();
+    transaction.exec(statement).unwrap();
     transaction.commit().unwrap();
 
-    let results = client.cypher()
+    let results = graph.cypher()
         .exec("MATCH (n:NTLY_INTG_TEST_3) RETURN n")
         .unwrap();
 
@@ -110,7 +109,7 @@ fn transaction_create_after_begin_commit() {
 
     assert_eq!(rust, lang);
 
-    client.cypher().exec("MATCH (n:NTLY_INTG_TEST_3) DELETE n").unwrap();
+    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_3) DELETE n").unwrap();
 }
 
 #[test]
@@ -121,17 +120,17 @@ fn transaction_create_on_commit() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_4 {lang})")
         .with_param("lang", &rust);
 
-    let (mut transaction, _) = client.cypher().transaction().begin().unwrap();
+    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
     transaction.add_statement(statement);
     transaction.commit().unwrap();
 
-    let results = client.cypher()
+    let results = graph.cypher()
         .exec("MATCH (n:NTLY_INTG_TEST_4) RETURN n")
         .unwrap();
 
@@ -142,7 +141,7 @@ fn transaction_create_on_commit() {
 
     assert_eq!(rust, lang);
 
-    client.cypher().exec("MATCH (n:NTLY_INTG_TEST_4) DELETE n").unwrap();
+    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_4) DELETE n").unwrap();
 }
 
 #[test]
@@ -153,22 +152,21 @@ fn transaction_create_on_begin_rollback() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_5 {lang})")
         .with_param("lang", &rust);
 
-    let (mut transaction, _) = client.cypher().transaction()
+    let (mut transaction, _) = graph.cypher().transaction()
         .with_statement(statement)
         .begin().unwrap();
 
     let results = transaction
-        .with_statement("MATCH (n:NTLY_INTG_TEST_5) RETURN n")
-        .exec()
+        .exec("MATCH (n:NTLY_INTG_TEST_5) RETURN n")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -177,7 +175,7 @@ fn transaction_create_on_begin_rollback() {
 
     transaction.rollback().unwrap();
 
-    let results = client.cypher()
+    let results = graph.cypher()
         .exec("MATCH (n:NTLY_INTG_TEST_5) RETURN n")
         .unwrap();
 
@@ -192,22 +190,20 @@ fn transaction_create_after_begin_rollback() {
         safe: true,
     };
 
-    let client = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_6 {lang})")
         .with_param("lang", &rust);
 
-    let (mut transaction, _) = client.cypher().transaction().begin().unwrap();
-    transaction.add_statement(statement);
-    transaction.exec().unwrap();
+    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+    transaction.exec(statement).unwrap();
 
     let results = transaction
-        .with_statement("MATCH (n:NTLY_INTG_TEST_6) RETURN n")
-        .exec()
+        .exec("MATCH (n:NTLY_INTG_TEST_6) RETURN n")
         .unwrap();
 
-    let rows: Vec<Row> = results[0].rows().take(1).collect();
+    let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
     let lang: Language = row.get("n").unwrap();
@@ -216,7 +212,7 @@ fn transaction_create_after_begin_rollback() {
 
     transaction.rollback().unwrap();
 
-    let results = client.cypher()
+    let results = graph.cypher()
         .exec("MATCH (n:NTLY_INTG_TEST_6) RETURN n")
         .unwrap();
 
