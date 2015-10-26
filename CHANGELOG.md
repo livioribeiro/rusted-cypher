@@ -3,6 +3,7 @@
   - BC: Changed `Transaction<Started>` api to match `Cypher` and `CypherQuery`
     - `Transaction<Started>::send` executes multiple queries like `CypherQuery::send`
     - `Transaction<Started>::exec` executes a single query like `Cypher::exec`
+  - Refactored tests for `cypher/mod.rs` and `cypher/transaction.rs`
 
 # 0.5
 

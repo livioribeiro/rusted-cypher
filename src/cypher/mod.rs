@@ -1,45 +1,55 @@
 //! Provides structs used to interact with the cypher transaction endpoint
 //!
 //! The types declared in this module, save for `Statement`, don't need to be instantiated
-//! directly, since they can be obtained from the `GraphClient`
+//! directly, since they can be obtained from the `GraphClient`.
 //!
 //! # Examples
 //!
+//! ## Execute a single query
 //! ```
-//! # extern crate hyper;
-//! # extern crate rusted_cypher;
-//! # use std::collections::BTreeMap;
-//! # use hyper::Url;
-//! # use hyper::header::{Authorization, Basic, ContentType, Headers};
-//! # use rusted_cypher::cypher::Cypher;
-//! # fn main() {
-//! # let url = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
-//! #
-//! # let mut headers = Headers::new();
-//! # headers.set(Authorization(
-//! #     Basic {
-//! #         username: "neo4j".to_owned(),
-//! #         password: Some("neo4j".to_owned()),
-//! #     }
-//! # ));
-//! #
-//! # headers.set(ContentType::json());
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! let graph = GraphClient::connect(URL).unwrap();
 //!
-//! let cypher = Cypher::new(url, headers);
+//! graph.cypher().exec("CREATE (n:CYPHER_QUERY {value: 1})").unwrap();
+//! let result = graph.cypher().exec("MATCH (n:CYPHER_QUERY) RETURN n.value AS value").unwrap();
+//! # assert_eq!(result.data.len(), 1);
 //!
-//! cypher.exec("CREATE (n:CYPHER_QUERY {value: 1})").unwrap();
+//! // Iterate over the results
+//! for row in result.rows() {
+//!     let value = row.get::<i32>("value").unwrap(); // or: let value: i32 = row.get("value");
+//!     assert_eq!(value, 1);
+//! }
+//! ```
 //!
-//! let mut query = cypher.query();
-//! query.add_statement("MATCH (n:CYPHER_QUERY) RETURN n.value as value");
+//! ## Execute multiple queries
+//! ```
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! let mut query = graph.cypher().query()
+//!     .with_statement("MATCH (n:CYPHER_QUERY) RETURN n.value as value")
+//!     .with_statement("MATCH (n:OTHER_CYPHER_QUERY) RETURN n");
 //!
-//! let result = query.send().unwrap();
+//! let results = query.send().unwrap();
 //!
-//! for row in result[0].rows() {
+//! for row in results[0].rows() {
 //!     let value: i32 = row.get("value").unwrap();
 //!     assert_eq!(value, 1);
 //! }
-//! # cypher.exec("MATCH (n:CYPHER_QUERY) delete n");
-//! # }
+//! # graph.cypher().exec("MATCH (n:CYPHER_QUERY) delete n");
+//! ```
+//!
+//! ## Start a transaction
+//! ```
+//! # use rusted_cypher::GraphClient;
+//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
+//! # let graph = GraphClient::connect(URL).unwrap();
+//! let (transaction, results) = graph.cypher().transaction()
+//!     .with_statement("MATCH (n:CYPHER_QUERY) RETURN n")
+//!     .begin().unwrap();
+//!
+//! # assert_eq!(results.len(), 1);
 //! ```
 
 pub mod transaction;
@@ -148,26 +158,6 @@ impl Cypher {
     /// Executes the given `Statement`
     ///
     /// Parameter can be anything that implements `Into<Statement>`, `&str` or `Statement` itself
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use rusted_cypher::GraphClient;
-    /// # use rusted_cypher::Statement;
-    /// # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
-    /// # let cypher = graph.cypher();
-    /// // `&str` implements `Into<Statement>`
-    /// let result = cypher.exec("MATCH n RETURN n");
-    /// # let result = result.unwrap();
-    /// # assert_eq!(result.columns.len(), 1);
-    /// # assert_eq!(result.columns[0], "n");
-    /// // Creating `Statement` by hand
-    /// let statement = Statement::new("MATCH n RETURN n");
-    /// let result = cypher.exec(statement);
-    /// # let result = result.unwrap();
-    /// # assert_eq!(result.columns.len(), 1);
-    /// # assert_eq!(result.columns[0], "n");
-    /// ```
     pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
         let mut query = self.query();
         query.add_statement(statement);
