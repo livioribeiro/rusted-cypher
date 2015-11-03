@@ -1,4 +1,6 @@
 extern crate serde;
+
+#[macro_use]
 extern crate rusted_cypher;
 
 use rusted_cypher::{GraphClient, Statement};
@@ -202,4 +204,32 @@ fn transaction_create_after_begin_rollback() {
         .unwrap();
 
     assert_eq!(0, results.rows().count());
+}
+
+#[test]
+fn save_retrive_values_with_macro() {
+    let graph = GraphClient::connect(URI).unwrap();
+
+    let statement = cypher_stmt!(
+        "CREATE (n:INTG_TEST_7 {name: {name}, level: {level}, safe: {safe}}) RETURN n.name, n.level, n.safe" {
+            "name" => "Rust",
+            "level" => "low",
+            "safe" => true
+        }
+    );
+
+    let results = graph.cypher().exec(statement).unwrap();
+
+    let rows: Vec<Row> = results.rows().take(1).collect();
+    let row = rows.first().unwrap();
+
+    let name: String = row.get("n.name").unwrap();
+    let level: String = row.get("n.level").unwrap();
+    let safe: bool = row.get("n.safe").unwrap();
+
+    assert_eq!("Rust", name);
+    assert_eq!("low", level);
+    assert_eq!(true, safe);
+
+    graph.cypher().exec("MATCH (n:INTG_TEST_7) DELETE n").unwrap();
 }

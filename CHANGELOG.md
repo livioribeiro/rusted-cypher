@@ -1,3 +1,7 @@
+# 0.7
+
+- Added macro `cypher_stmt!` for crating statements.
+
 # 0.6
 
   - BC: Changed `Transaction<Started>` api to match `Cypher` and `CypherQuery`

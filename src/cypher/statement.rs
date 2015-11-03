@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::convert::From;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
 
 #[derive(Clone, Serialize)]
@@ -24,6 +24,10 @@ impl Statement  {
 
     pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
         self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
+    }
+
+    pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
+        self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
     }
 
     pub fn get_params(&self) -> &BTreeMap<String, Value> {
