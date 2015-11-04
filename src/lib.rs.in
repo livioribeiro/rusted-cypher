@@ -1,7 +1,6 @@
 pub mod cypher;
 pub mod graph;
 pub mod error;
-pub mod macros;
 
 pub use graph::GraphClient;
 pub use cypher::Statement;

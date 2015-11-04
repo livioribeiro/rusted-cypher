@@ -92,6 +92,37 @@
 //!
 //! transaction.rollback();
 //! ```
+//!
+//! ## Statements with Macro
+//!
+//! There is a macro to help building statements
+//!
+//! ```
+//! # #[macro_use] extern crate rusted_cypher;
+//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::cypher::Statement;
+//! # fn main() {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
+//! let statement = cypher_stmt!(
+//!     "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })" {
+//!         "name" => "Rust",
+//!         "level" => "low",
+//!         "safe" => true
+//!     }
+//! );
+//! graph.cypher().exec(statement).unwrap();
+//!
+//! let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n" {
+//!     "name" => "Rust"
+//! });
+//!
+//! let results = graph.cypher().exec(statement).unwrap();
+//! assert_eq!(results.data.len(), 1);
+//!
+//! let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n");
+//! graph.cypher().exec(statement).unwrap();
+//! # }
+//! ```
 
 #![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde_macros", plugin(serde_macros))]

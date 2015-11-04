@@ -3,8 +3,6 @@
 #![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
 extern crate serde;
-
-#[macro_use]
 extern crate rusted_cypher;
 
 use rusted_cypher::{GraphClient, Statement};
@@ -219,29 +217,4 @@ fn transaction_create_after_begin_rollback() {
         .unwrap();
 
     assert_eq!(0, results.rows().count());
-}
-
-#[test]
-fn save_retrive_struct_with_macro() {
-    let rust = Language {
-        name: "Rust".to_owned(),
-        level: "low".to_owned(),
-        safe: true,
-    };
-
-    let graph = GraphClient::connect(URI).unwrap();
-
-    let statement = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_7 {lang}) RETURN n" {
-        "lang" => &rust
-    });
-
-    let results = graph.cypher().exec(statement).unwrap();
-    let rows: Vec<Row> = results.rows().take(1).collect();
-    let row = rows.first().unwrap();
-
-    let lang: Language = row.get("n").unwrap();
-
-    assert_eq!(rust, lang);
-
-    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_7) DELETE n").unwrap();
 }
