@@ -88,4 +88,27 @@ assert_eq!(results[0].data.len(), 2);
 transaction.rollback();
 ```
 
-License: MIT
+### Statements with Macro
+
+There is a macro to help building statements
+
+```rust
+let statement = cypher_stmt!(
+    "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })" {
+        "name" => "Rust",
+        "level" => "low",
+        "safe" => true
+    }
+);
+graph.cypher().exec(statement).unwrap();
+
+let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n" {
+    "name" => "Rust"
+});
+
+let results = graph.cypher().exec(statement).unwrap();
+assert_eq!(results.data.len(), 1);
+
+let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n");
+graph.cypher().exec(statement).unwrap();
+```
