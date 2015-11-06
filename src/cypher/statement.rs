@@ -12,7 +12,7 @@ macro_rules! cypher_stmt {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Debug)]
 pub struct Statement {
     statement: String,
     parameters: BTreeMap<String, Value>,
