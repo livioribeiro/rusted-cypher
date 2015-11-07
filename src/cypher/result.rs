@@ -1,3 +1,5 @@
+use std::convert::From;
+
 use serde::Deserialize;
 use serde_json;
 use serde_json::value::Value;
@@ -25,11 +27,13 @@ impl ResultTrait for QueryResult {
     }
 }
 
+/// Holds a single row of the result of a cypher query
 #[derive(Clone, Debug, Deserialize)]
 pub struct RowResult {
     row: Vec<Value>,
 }
 
+/// Holds the result of a cypher query
 #[derive(Clone, Debug, Deserialize)]
 pub struct CypherResult {
     pub columns: Vec<String>,
@@ -37,6 +41,7 @@ pub struct CypherResult {
 }
 
 impl CypherResult {
+    /// Returns an iterator over the rows of the result
     pub fn rows(&self) -> Rows {
         Rows::new(&self.columns, &self.data)
     }
@@ -71,16 +76,34 @@ impl<'a> Row<'a> {
         }
     }
 
+    /// Gets the value of a column by its name
+    ///
+    /// The column name must be exactly as it was named in the query. For example, if your query
+    /// was `"MATCH (n:PERSON) RETURN n.name, n.gender"`, then you should use `row.get("n.name")`
+    /// and `row.get("n.gender")` since this is what the neo4j api produces.
+    ///
+    /// If the column does not exist in the row, an `Err` is returned with the message
+    /// `"No such column: {column_name}"`.
     pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
-            None => Err(GraphError::new("No such column")),
+            None => Err(GraphError::new(&format!("No such column: {}", &column))),
         }
     }
 
+    /// Gets the value of a column by order
+    ///
+    /// Column number is 0 based, so the first column is 0, the second is 1 and so on.
+    ///
+    /// If the column number is not within the columns length, and `Err` is returned with the
+    /// message `"No such column at index {column_number}"`.
     pub fn get_n<T:Deserialize>(&self, column: usize) -> Result<T, GraphError> {
-        let column_data = try!(serde_json::value::from_value::<T>(self.data[column].clone()));
-        Ok(column_data)
+        let column_data = match self.data.get(column) {
+            Some(c) => c.clone(),
+            None => return Err(GraphError::new(&format!("No column at index {}", column))),
+        };
+
+        serde_json::value::from_value::<T>(column_data).map_err(From::from)
     }
 }
 

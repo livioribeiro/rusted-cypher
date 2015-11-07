@@ -3,6 +3,26 @@ use std::convert::From;
 use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
 
+/// Helper macro to simplify the creation of complex statements
+///
+/// Pass in the statement text as the first argument followed by the (optional) parameters, which
+/// must be in the format `"param" => value` and wrapped in `{}`
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate rusted_cypher;
+/// # fn main() {
+/// // Without parameters
+/// let statement = cypher_stmt!("MATCH n RETURN n");
+/// // With parameters
+/// let statement = cypher_stmt!("MATCH n RETURN n" {
+///     "param1" => "value1",
+///     "param2" => 2,
+///     "param3" => 3.0
+/// });
+/// # }
+/// ```
 #[macro_export]
 macro_rules! cypher_stmt {
     ( $s:expr ) => { $crate::Statement::new($s) };
@@ -26,33 +46,53 @@ impl Statement  {
         }
     }
 
+    /// Adds parameter in builder style
+    ///
+    /// This method consumes `self` and returns it with the parameter added, so the binding does
+    /// not need to be mutable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use rusted_cypher::Statement;
+    /// let statement = Statement::new("MATCH n RETURN n")
+    ///     .with_param("param1", "value1")
+    ///     .with_param("param2", 2)
+    ///     .with_param("param3", 3.0);
+    /// ```
     pub fn with_param<V: Serialize + Copy>(mut self, key: &str, value: V) -> Self {
         self.add_param(key, value);
         self
     }
 
+    /// Adds parameter to the `Statement`
     pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
         self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
     }
 
+    /// Gets the value of the parameter
+    ///
+    /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
+    /// if the parameter cannot be converted back from `serde_json::value::Value`
     pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
         self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
     }
 
+    /// Gets a reference to the underlying parameters `BTreeMap`
     pub fn get_params(&self) -> &BTreeMap<String, Value> {
         &self.parameters
     }
 
+    /// Sets the parameters `BTreeMap`, overriding current values
     pub fn set_params<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
-        let mut _params = BTreeMap::new();
-
-        for (k, v) in params.iter() {
-            _params.insert(k.to_owned(), serde_json::value::to_value(&v));
-        }
-
-        self.parameters = _params;
+        self.parameters = params.iter()
+            .map(|(k, v)| (k.to_owned(), serde_json::value::to_value(&v)))
+            .collect();
     }
 
+    /// Removes parameter from the statment
+    ///
+    /// Trying to remove a non-existent parameter has no effect
     pub fn remove_param(&mut self, key: &str) {
         self.parameters.remove(key);
     }

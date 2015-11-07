@@ -1,3 +1,8 @@
+# 0.7.1
+
+- Refactored `cypher::result::Row::{get, get_n}` to give better erro messages.
+- Improved docs.
+
 # 0.7
 
 - Added macro `cypher_stmt!` for crating statements.

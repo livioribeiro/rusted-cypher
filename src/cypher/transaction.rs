@@ -134,6 +134,12 @@ impl ResultTrait for CommitResult {
     }
 }
 
+/// Provides methods to interact with a transaction
+///
+/// This struct is used to begin a transaction, send queries, commit an rollback a transaction.
+/// Some methods are provided depending on the state of the transaction, for example,
+/// `Transaction::begin` is provided on a `Created` transaction and `Transaction::commit` is provided
+/// on `Started` transaction
 pub struct Transaction<'a, State: Any = Created> {
     transaction: String,
     commit: String,
@@ -145,10 +151,12 @@ pub struct Transaction<'a, State: Any = Created> {
 }
 
 impl<'a, State: Any> Transaction<'a, State> {
+    /// Adds a statement to the transaction
     pub fn add_statement<S: Into<Statement>>(&mut self, statement: S) {
         self.statements.push(statement.into());
     }
 
+    /// Gets the expiration time of the transaction
     pub fn get_expires(&self) -> &Tm {
         &self.expires
     }
@@ -167,11 +175,16 @@ impl<'a> Transaction<'a, Created> {
         }
     }
 
+    /// Adds a statement to the transaction in builder style
     pub fn with_statement<S: Into<Statement>>(mut self, statement: S) -> Self {
         self.add_statement(statement);
         self
     }
 
+    /// Begins the transaction
+    ///
+    /// Consumes the `Transaction<Created>` and returns the a `Transaction<Started>` alongside with
+    /// the results of any `Statement` sent.
     pub fn begin(self) -> Result<(Transaction<'a, Started>, Vec<CypherResult>), GraphError> {
         debug!("Beginning transaction");
 
@@ -210,6 +223,7 @@ impl<'a> Transaction<'a, Created> {
 }
 
 impl<'a> Transaction<'a, Started> {
+    /// Adds a statement to the transaction in builder style
     pub fn with_statement<S: Into<Statement>>(&mut self, statement: S) -> &mut Self {
         self.add_statement(statement);
         self
@@ -228,6 +242,7 @@ impl<'a> Transaction<'a, Started> {
         Ok(result)
     }
 
+    /// Executes the statements added via `add_statement` or `with_statement`
     pub fn send(&mut self) -> Result<Vec<CypherResult>, GraphError> {
         let mut res = try!(super::send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
         self.statements.clear();
@@ -242,6 +257,7 @@ impl<'a> Transaction<'a, Started> {
         Ok(result.results)
     }
 
+    /// Commits the transaction, returning the results
     pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
         debug!("Commiting transaction {}", self.transaction);
         let mut res = try!(super::send_query(&self.client, &self.commit, self.headers, self.statements));
@@ -252,6 +268,7 @@ impl<'a> Transaction<'a, Started> {
         Ok(result.results)
     }
 
+    /// Rollback the transaction
     pub fn rollback(self) -> Result<(), GraphError> {
         debug!("Rolling back transaction {}", self.transaction);
         let req = self.client.delete(&self.transaction).headers(self.headers.clone());
@@ -263,6 +280,9 @@ impl<'a> Transaction<'a, Started> {
         Ok(())
     }
 
+    /// Sends a query to just reset the transaction timeout
+    ///
+    /// All transactions have a timeout. Use this method to keep a transaction alive.
     pub fn reset_timeout(&mut self) -> Result<(), GraphError> {
         try!(super::send_query(&self.client, &self.transaction, self.headers, vec![]));
         Ok(())
@@ -274,7 +294,7 @@ mod tests {
     use super::*;
     use hyper::header::{Authorization, Basic, ContentType, Headers};
 
-    const URL: &'static str = "http:neo4j:neo4j@localhost:7474/db/data/transaction";
+    const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data/transaction";
 
     fn get_headers() -> Headers {
         let mut headers = Headers::new();

@@ -148,6 +148,7 @@ impl Cypher {
         &self.headers
     }
 
+    /// Creates a new `CypherQuery`
     pub fn query(&self) -> CypherQuery {
         CypherQuery {
             statements: Vec::new(),
@@ -170,6 +171,7 @@ impl Cypher {
         }
     }
 
+    /// Creates a new `Transaction`
     pub fn transaction(&self) -> Transaction<self::transaction::Created> {
         Transaction::new(&self.endpoint.to_string(), &self.headers)
     }
@@ -187,7 +189,7 @@ pub struct CypherQuery<'a> {
 }
 
 impl<'a> CypherQuery<'a> {
-    /// Adds statements in builder like style
+    /// Adds statements in builder style
     pub fn with_statement<T: Into<Statement>>(mut self, statement: T) -> Self {
         self.add_statement(statement);
         self
