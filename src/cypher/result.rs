@@ -162,4 +162,22 @@ mod tests {
             assert_eq!(row.get("lastname").unwrap(), "Result");
         }
     }
+
+    #[test]
+    #[should_panic(expected = "No such column")]
+    fn no_column_name_in_row() {
+        let result = make_result();
+        let rows: Vec<Row> = result.rows().collect();
+        let ref row = rows[0];
+        row.get::<String>("nonexistent").unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "No column at index")]
+    fn no_column_index_in_row() {
+        let result = make_result();
+        let rows: Vec<Row> = result.rows().collect();
+        let ref row = rows[0];
+        row.get_n::<String>(99).unwrap();
+    }
 }
