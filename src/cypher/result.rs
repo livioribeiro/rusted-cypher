@@ -91,6 +91,14 @@ impl<'a> Row<'a> {
         }
     }
 
+    /// Gets the JSON-serialized value of a column by its name
+    pub fn get_json_string(&self, column: &str) -> Result<String, GraphError> {
+        match self.columns.iter().position(|c| c == column) {
+            Some(index) => self.get_json_string_n(index),
+            None => Err(GraphError::new(&format!("No such column: {}", &column))),
+        }
+    }
+
     /// Gets the value of a column by order
     ///
     /// Column number is 0 based, so the first column is 0, the second is 1 and so on.
@@ -104,6 +112,12 @@ impl<'a> Row<'a> {
         };
 
         serde_json::value::from_value::<T>(column_data).map_err(From::from)
+    }
+
+    /// Gets the JSON-serialized value of a column by order
+    pub fn get_json_string_n(&self, column: usize) -> Result<String, GraphError> {
+        self.get_n::<Value>(column)
+            .and_then(|v|serde_json::to_string(&v).map_err(From::from))
     }
 }
 
