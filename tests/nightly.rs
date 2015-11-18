@@ -1,4 +1,4 @@
-#![cfg(feature = "serde_macros")]
+#![cfg(all(feature = "serde_macros", not(feature = "rustc-serialize")))]
 #![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 

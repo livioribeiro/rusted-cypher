@@ -68,6 +68,7 @@ use url::Url;
 use serde::Deserialize;
 use serde_json::{self, Value};
 use serde_json::de as json_de;
+use serde_json::ser as json_ser;
 use serde_json::value as json_value;
 
 use self::result::{QueryResult, ResultTrait};
@@ -76,8 +77,19 @@ use ::error::GraphError;
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
     -> Result<Response, GraphError> {
 
+    if cfg!(feature = "rustc-serialize") {
+        for stmt in statements.iter() {
+            for (key, value) in stmt.get_params() {
+                if value.is_none() {
+                    return Err(GraphError::new(&format!("Unable to process parameter {} of query {}", key, stmt.query())));
+                }
+            }
+        }
+    }
+
     let mut json = BTreeMap::new();
     json.insert("statements", statements);
+
     let json = match serde_json::to_string(&json) {
         Ok(json) => json,
         Err(e) => {
@@ -90,7 +102,7 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
         .headers(headers.clone())
         .body(&json);
 
-    debug!("Seding query:\n{}", ::serde_json::ser::to_string_pretty(&json).unwrap_or(String::new()));
+    debug!("Seding query:\n{}", json_ser::to_string_pretty(&json).unwrap_or(String::new()));
 
     let res = try!(req.send());
     Ok(res)
@@ -227,12 +239,6 @@ mod tests {
     use super::*;
     use ::cypher::result::Row;
 
-    #[derive(Serialize, Deserialize)]
-    struct ComplexType {
-        pub name: String,
-        pub  value: i32,
-    }
-
     fn get_cypher() -> Cypher {
         use hyper::Url;
         use hyper::header::{Authorization, Basic, ContentType, Headers};
@@ -283,9 +289,27 @@ mod tests {
 
     #[test]
     fn query_with_complex_param() {
+        #[cfg(not(feature = "rustc-serialize"))]
+        mod inner {
+            #[derive(Serialize, Deserialize)]
+            pub struct ComplexType {
+                pub name: String,
+                pub value: i32,
+            }
+        }
+
+        #[cfg(feature = "rustc-serialize")]
+        mod inner {
+            #[derive(RustcEncodable, RustcDecodable)]
+            pub struct ComplexType {
+                pub name: String,
+                pub value: i32,
+            }
+        }
+
         let cypher = get_cypher();
 
-        let complex_param = ComplexType {
+        let complex_param = inner::ComplexType {
             name: "Complex".to_owned(),
             value: 42,
         };
@@ -300,7 +324,7 @@ mod tests {
         let rows: Vec<Row> = results.rows().take(1).collect();
         let row = rows.first().unwrap();
 
-        let complex_result: ComplexType = row.get("n").unwrap();
+        let complex_result: inner::ComplexType = row.get("n").unwrap();
         assert_eq!(complex_result.name, "Complex");
         assert_eq!(complex_result.value, 42);
 
@@ -309,7 +333,8 @@ mod tests {
 
     #[test]
     fn query_with_multiple_params() {
-        let statement = Statement::new("MATCH (n:TEST_CYPHER {name: {name}}) WHERE n.value = {value} RETURN n")
+        let statement = Statement::new(
+            "MATCH (n:TEST_CYPHER {name: {name}}) WHERE n.value = {value} RETURN n")
             .with_param("name", "Neo")
             .with_param("value", 42);
 
