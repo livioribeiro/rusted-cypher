@@ -110,6 +110,17 @@ impl From<serde_json::error::Error> for GraphError {
     }
 }
 
+#[cfg(feature = "rustc-serialize")]
+impl From<rustc_json::DecoderError> for GraphError {
+    fn from(error: rustc_json::DecoderError) -> Self {
+        GraphError {
+            message: "rustc_serialize::json::DecoderError".to_owned(),
+            neo4j_errors: None,
+            cause: Some(Box::new(error))
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TimeParseError(time::ParseError, String);
 
@@ -131,17 +142,6 @@ impl From<time::ParseError> for GraphError {
             message: "time::ParseError".to_owned(),
             neo4j_errors: None,
             cause: Some(Box::new(TimeParseError(error, format!("{}", error)))),
-        }
-    }
-}
-
-#[cfg(feature = "rustc-serialize")]
-impl From<rustc_json::DecoderError> for GraphError {
-    fn from(error: rustc_json::DecoderError) -> Self {
-        GraphError {
-            message: "rustc_serialize::json::DecoderError".to_owned(),
-            neo4j_errors: None,
-            cause: Some(Box::new(error))
         }
     }
 }

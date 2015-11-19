@@ -81,13 +81,23 @@ mod inner {
         ///
         /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
         /// if the parameter cannot be converted back from `serde_json::value::Value`
-        pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
+        pub fn param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
             self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
         }
 
+        /// Use `Self::param`
+        pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
+            self.param(key)
+        }
+
         /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn get_params(&self) -> &BTreeMap<String, Value> {
+        pub fn params(&self) -> &BTreeMap<String, Value> {
             &self.parameters
+        }
+
+        /// Use `Self::params`
+        pub fn get_params(&self) -> &BTreeMap<String, Value> {
+            self.params()
         }
 
         /// Sets the parameters `BTreeMap`, overriding current values
@@ -113,11 +123,14 @@ mod inner {
     use rustc_serialize::{Encodable, Decodable};
     use rustc_serialize::json as rustc_json;
     use serde_json::{self, Value};
+    use ::error::GraphError;
 
     #[derive(Clone, Debug, Serialize)]
     pub struct Statement {
         statement: String,
-        parameters: BTreeMap<String, Option<Value>>,
+        parameters: BTreeMap<String, Value>,
+        #[serde(skip_serializing)]
+        param_errors: Vec<(String, String)>,
     }
 
     impl Statement  {
@@ -125,6 +138,7 @@ mod inner {
             Statement {
                 statement: statement.to_owned(),
                 parameters: BTreeMap::new(),
+                param_errors: Vec::new(),
             }
         }
 
@@ -153,37 +167,46 @@ mod inner {
 
         /// Adds parameter to the `Statement`
         pub fn add_param<V: Encodable + Copy>(&mut self, key: &str, value: V) {
-            let between = rustc_json::encode(&value);
-            if between.is_err() {
-                self.parameters.insert(key.to_owned(), None);
-                return;
-            }
+            let between = match rustc_json::encode(&value) {
+                Ok(value) => value,
+                Err(e) => {
+                    self.param_errors.push((key.to_owned(), format!("{}", e)));
+                    return
+                }
+            };
 
-            let value = serde_json::from_str::<Value>(&between.unwrap());
-            if value.is_err() {
-                self.parameters.insert(key.to_owned(), None);
-                return;
-            }
+            let value = match serde_json::from_str::<Value>(&between) {
+                Ok(value) => value,
+                Err(e) => {
+                    self.param_errors.push((key.to_owned(), format!("{}", e)));
+                    return
+                }
+            };
 
-            self.parameters.insert(key.to_owned(), Some(value.unwrap()));
+            self.parameters.insert(key.to_owned(), value);
         }
 
         /// Gets the value of the parameter
         ///
         /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
         /// if the parameter cannot be converted back from `serde_json::value::Value`
-        pub fn get_param<V: Decodable>(&self, key: &str) -> Option<Option<V>> {
+        pub fn param<V: Decodable>(&self, key: &str) -> Option<Result<V, GraphError>> {
             self.parameters.get(key.into()).map(|v| {
                 let between = match serde_json::to_string(&v) {
                     Ok(value) => value,
-                    Err(_) => return None,
+                    Err(e) => return Err(GraphError::new_error(Box::new(e))),
                 };
-                rustc_json::decode(&between).ok()
+                rustc_json::decode(&between).map_err(From::from)
             })
         }
 
+        /// Use `Self::param`
+        pub fn get_param<V: Decodable>(&self, key: &str) -> Option<Result<V, GraphError>> {
+            self.param(key)
+        }
+
         /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn get_params(&self) -> &BTreeMap<String, Option<Value>> {
+        pub fn get_params(&self) -> &BTreeMap<String, Value> {
             &self.parameters
         }
 
@@ -205,6 +228,14 @@ mod inner {
         /// Trying to remove a non-existent parameter has no effect
         pub fn remove_param(&mut self, key: &str) {
             self.parameters.remove(key);
+        }
+
+        pub fn has_param_errors(&self) -> bool {
+            !self.param_errors.is_empty()
+        }
+
+        pub fn param_errors(&self) -> &Vec<(String, String)> {
+            &self.param_errors
         }
     }
 }

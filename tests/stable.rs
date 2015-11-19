@@ -205,34 +205,3 @@ fn transaction_create_after_begin_rollback() {
 
     assert_eq!(0, results.rows().count());
 }
-
-#[test]
-#[cfg(feature = "rustc-serialize")]
-fn complex_param() {
-    #[derive(RustcEncodable, RustcDecodable, Debug, PartialEq)]
-    struct Language {
-        name: String,
-        level: String,
-        safe: bool,
-    }
-
-    let graph = GraphClient::connect(URI).unwrap();
-
-    let param = Language {
-        name: "Rust".to_owned(),
-        level: "low".to_owned(),
-        safe: true,
-    };
-    let statement = Statement::new("CREATE (n:INTG_TEST_7 {lang})")
-        .with_param("lang", &param);
-
-    graph.cypher().exec(statement).unwrap();
-
-    let results = graph.cypher().exec("MATCH (n:INTG_TEST_7) RETURN n").unwrap();
-    let rows: Vec<Row> = results.rows().take(1).collect();
-    let row = rows.first().unwrap();
-
-    let node = row.get::<Language>("n").unwrap();
-
-    assert_eq!(param, node);
-}

@@ -20,6 +20,7 @@
 //!     let value = row.get::<i32>("value").unwrap(); // or: let value: i32 = row.get("value");
 //!     assert_eq!(value, 1);
 //! }
+//! # graph.cypher().exec("MATCH (n:CYPHER_QUERY) delete n");
 //! ```
 //!
 //! ## Execute multiple queries
@@ -28,7 +29,7 @@
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 //! # let graph = GraphClient::connect(URL).unwrap();
 //! let mut query = graph.cypher().query()
-//!     .with_statement("MATCH (n:CYPHER_QUERY) RETURN n.value as value")
+//!     .with_statement("MATCH (n:SOME_CYPHER_QUERY) RETURN n.value as value")
 //!     .with_statement("MATCH (n:OTHER_CYPHER_QUERY) RETURN n");
 //!
 //! let results = query.send().unwrap();
@@ -37,7 +38,6 @@
 //!     let value: i32 = row.get("value").unwrap();
 //!     assert_eq!(value, 1);
 //! }
-//! # graph.cypher().exec("MATCH (n:CYPHER_QUERY) delete n");
 //! ```
 //!
 //! ## Start a transaction
@@ -46,7 +46,7 @@
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
 //! # let graph = GraphClient::connect(URL).unwrap();
 //! let (transaction, results) = graph.cypher().transaction()
-//!     .with_statement("MATCH (n:CYPHER_QUERY) RETURN n")
+//!     .with_statement("MATCH (n:TRANSACTION_CYPHER_QUERY) RETURN n")
 //!     .begin().unwrap();
 //!
 //! # assert_eq!(results.len(), 1);
@@ -74,17 +74,31 @@ use serde_json::value as json_value;
 use self::result::{QueryResult, ResultTrait};
 use ::error::GraphError;
 
+#[cfg(feature = "rustc-serialize")]
+fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result<(), GraphError> {
+    for stmt in statements.iter() {
+        if stmt.has_param_errors() {
+            let entry = stmt.param_errors().iter().nth(1).unwrap();
+            return Err(GraphError::new(
+                &format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.query(), entry.1)
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(not(feature = "rustc-serialize"))]
+#[allow(unused_variables)]
+fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result<(), GraphError> {
+    Ok(())
+}
+
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
     -> Result<Response, GraphError> {
 
     if cfg!(feature = "rustc-serialize") {
-        for stmt in statements.iter() {
-            for (key, value) in stmt.get_params() {
-                if value.is_none() {
-                    return Err(GraphError::new(&format!("Unable to process parameter {} of query {}", key, stmt.query())));
-                }
-            }
-        }
+        try!(check_param_errors_for_rustc_serialize(&statements));
     }
 
     let mut json = BTreeMap::new();
