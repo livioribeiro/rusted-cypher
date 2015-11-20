@@ -80,7 +80,7 @@ fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result
         if stmt.has_param_errors() {
             let entry = stmt.param_errors().iter().nth(1).unwrap();
             return Err(GraphError::new(
-                &format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.query(), entry.1)
+                &format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.statement(), entry.1)
             ));
         }
     }
@@ -89,8 +89,7 @@ fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result
 }
 
 #[cfg(not(feature = "rustc-serialize"))]
-#[allow(unused_variables)]
-fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result<(), GraphError> {
+fn check_param_errors_for_rustc_serialize(_: &Vec<Statement>) -> Result<(), GraphError> {
     Ok(())
 }
 
@@ -223,6 +222,10 @@ impl<'a> CypherQuery<'a> {
 
     pub fn add_statement<T: Into<Statement>>(&mut self, statement: T) {
         self.statements.push(statement.into());
+    }
+
+    pub fn statements(&self) -> &Vec<Statement> {
+        &self.statements
     }
 
     pub fn set_statements(&mut self, statements: Vec<Statement>) {

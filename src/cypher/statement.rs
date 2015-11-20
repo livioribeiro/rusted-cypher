@@ -35,6 +35,7 @@ mod inner {
     use serde::{Serialize, Deserialize};
     use serde_json::{self, Value};
 
+    /// Represents a statement to be sent to the server
     #[derive(Clone, Debug, Serialize)]
     pub struct Statement {
         statement: String,
@@ -49,7 +50,8 @@ mod inner {
             }
         }
 
-        pub fn query(&self) -> &str {
+        /// Returns the statement text
+        pub fn statement(&self) -> &str {
             &self.statement
         }
 
@@ -91,20 +93,25 @@ mod inner {
         }
 
         /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn params(&self) -> &BTreeMap<String, Value> {
+        pub fn parameters(&self) -> &BTreeMap<String, Value> {
             &self.parameters
         }
 
-        /// Use `Self::params`
+        /// Use `Self::parameters`
         pub fn get_params(&self) -> &BTreeMap<String, Value> {
-            self.params()
+            self.parameters()
         }
 
         /// Sets the parameters `BTreeMap`, overriding current values
-        pub fn set_params<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
+        pub fn set_parameters<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
             self.parameters = params.iter()
                 .map(|(k, v)| (k.to_owned(), serde_json::value::to_value(&v)))
                 .collect();
+        }
+
+        /// Use `Self::set_parameters`
+        pub fn set_params<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
+            self.set_parameters(params);
         }
 
         /// Removes parameter from the statment
@@ -125,6 +132,7 @@ mod inner {
     use serde_json::{self, Value};
     use ::error::GraphError;
 
+    /// Represents a statement to be sent to the server
     #[derive(Clone, Debug, Serialize)]
     pub struct Statement {
         statement: String,
@@ -142,7 +150,8 @@ mod inner {
             }
         }
 
-        pub fn query(&self) -> &str {
+        /// Returns the statement text
+        pub fn statement(&self) -> &str {
             &self.statement
         }
 
@@ -206,12 +215,17 @@ mod inner {
         }
 
         /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn get_params(&self) -> &BTreeMap<String, Value> {
+        pub fn parameters(&self) -> &BTreeMap<String, Value> {
             &self.parameters
         }
 
+        /// Use `Self::parameters`
+        pub fn get_params(&self) -> &BTreeMap<String, Value> {
+            self.parameters()
+        }
+
         /// Sets the parameters `BTreeMap`, overriding current values
-        pub fn set_params<V: Encodable>(&mut self, params: &BTreeMap<String, V>) -> Result<(), Box<Error>> {
+        pub fn set_parameters<V: Encodable>(&mut self, params: &BTreeMap<String, V>) -> Result<(), Box<Error>> {
             let mut new_params: BTreeMap<String, Value> = BTreeMap::new();
 
             for (k, v) in params.iter() {
@@ -221,6 +235,11 @@ mod inner {
             }
 
             Ok(())
+        }
+
+        /// Use `Self::set_parameters`
+        pub fn set_params<V: Encodable>(&mut self, params: &BTreeMap<String, V>) -> Result<(), Box<Error>> {
+            self.set_parameters(params)
         }
 
         /// Removes parameter from the statment
@@ -266,7 +285,7 @@ mod tests {
             .with_param("param3", 3.0)
             .with_param("param4", [0; 4]);
 
-        assert_eq!(statement.get_params().len(), 4);
+        assert_eq!(statement.parameters().len(), 4);
     }
 
     #[test]
@@ -277,7 +296,7 @@ mod tests {
         statement.add_param("param3", 3.0);
         statement.add_param("param4", [0; 4]);
 
-        assert_eq!(statement.get_params().len(), 4);
+        assert_eq!(statement.parameters().len(), 4);
     }
 
     #[test]
@@ -290,7 +309,7 @@ mod tests {
 
         statement.remove_param("param1");
 
-        assert_eq!(statement.get_params().len(), 3);
+        assert_eq!(statement.parameters().len(), 3);
     }
 
     #[test]
@@ -310,8 +329,8 @@ mod tests {
             "value" => param
         });
 
-        assert_eq!("test", statement1.get_param::<String>("name").unwrap().unwrap());
-        assert_eq!(param, statement2.get_param::<i32>("value").unwrap().unwrap());
+        assert_eq!("test", statement1.param::<String>("name").unwrap().unwrap());
+        assert_eq!(param, statement2.param::<i32>("value").unwrap().unwrap());
     }
 
     #[test]
@@ -323,8 +342,8 @@ mod tests {
             "param3" => param
         });
 
-        assert_eq!("one", statement.get_param::<String>("param1").unwrap().unwrap());
-        assert_eq!(2, statement.get_param::<i32>("param2").unwrap().unwrap());
-        assert_eq!(param, statement.get_param::<f32>("param3").unwrap().unwrap());
+        assert_eq!("one", statement.param::<String>("param1").unwrap().unwrap());
+        assert_eq!(2, statement.param::<i32>("param2").unwrap().unwrap());
+        assert_eq!(param, statement.param::<f32>("param3").unwrap().unwrap());
     }
 }
