@@ -1,6 +1,6 @@
 [package]
 name = "rusted_cypher"
-version = "0.7.1"
+version = "0.8.0"
 authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"

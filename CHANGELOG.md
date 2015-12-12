@@ -1,3 +1,7 @@
+# 0.8
+
+- Added support for `rustc-serialize` through feature.
+
 # 0.7.1
 
 - Refactored `cypher::result::Row::{get, get_n}` to give better erro messages.
