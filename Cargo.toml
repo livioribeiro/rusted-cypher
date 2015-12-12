@@ -17,15 +17,15 @@ nightly = ["serde_macros"]
 
 [build-dependencies]
 serde_codegen = { version = "0.6", optional = true }
-syntex = "0.17"
+syntex = "0.22"
 
 [dependencies]
-hyper = "0.6"
-url = "0.2"
+hyper = "0.7"
+url = "0.5"
 serde = "0.6"
 serde_json = "0.6"
 serde_macros = { version = "0.6", optional = true }
 rustc-serialize = { version = "0.3", optional = true }
-semver = "0.1"
+semver = "0.2"
 time = "0.1"
 log = "0.3"
