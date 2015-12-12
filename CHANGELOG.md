@@ -4,7 +4,7 @@
 
 # 0.7.1
 
-- Refactored `cypher::result::Row::{get, get_n}` to give better erro messages.
+- Refactored `cypher::result::Row::{get, get_n}` to give better error messages.
 - Improved docs.
 
 # 0.7
