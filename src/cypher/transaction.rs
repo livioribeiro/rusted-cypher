@@ -199,7 +199,7 @@ impl<'a> Transaction<'a, Created> {
             Some(location) => location.0.to_owned(),
             None => {
                 error!("No transaction URI returned from server");
-                return Err(GraphError::new("No transaction URI returned from server"));
+                return Err(GraphError::Transaction("No transaction URI returned from server".to_owned()));
             },
         };
 
@@ -237,14 +237,18 @@ impl<'a> Transaction<'a, Started> {
         self.add_statement(statement);
 
         let mut results = try!(self.send());
-        let result = try!(results.pop().ok_or(GraphError::new("Server returned no results")));
+        let result = try!(results.pop().ok_or(
+            GraphError::Statement("Server returned no results".to_owned())
+        ));
 
         Ok(result)
     }
 
     /// Executes the statements added via `add_statement` or `with_statement`
     pub fn send(&mut self) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(super::send_query(&self.client, &self.transaction, self.headers, self.statements.clone()));
+        let mut res = try!(super::send_query(
+            &self.client, &self.transaction, self.headers, self.statements.clone()
+        ));
         self.statements.clear();
 
         let result: TransactionResult = try!(super::parse_response(&mut res));
@@ -260,7 +264,9 @@ impl<'a> Transaction<'a, Started> {
     /// Commits the transaction, returning the results
     pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
         debug!("Commiting transaction {}", self.transaction);
-        let mut res = try!(super::send_query(&self.client, &self.commit, self.headers, self.statements));
+        let mut res = try!(super::send_query(
+            &self.client, &self.commit, self.headers, self.statements
+        ));
 
         let result: CommitResult = try!(super::parse_response(&mut res));
         debug!("Transaction commited {}", self.transaction);

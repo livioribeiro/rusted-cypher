@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::error::Error;
 use std::io::Read;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
@@ -33,8 +32,8 @@ fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
 
     result.map_err(|_| {
         match serde_json::de::from_str::<QueryResult>(json_string) {
-            Ok(result) => GraphError::new_neo4j_error(result.errors().clone()),
-            Err(e) => GraphError::new_error(Box::new(e)),
+            Ok(result) => GraphError::Neo4j(result.errors().clone()),
+            Err(e) => From::from(e),
         }
     })
 }
@@ -50,13 +49,8 @@ pub struct GraphClient {
 
 impl GraphClient {
     pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
-        let url = match Url::parse(endpoint) {
-            Ok(url) => url,
-            Err(e) => {
-                error!("Unable to parse URL");
-                return Err(GraphError::new_error(Box::new(e)));
-            },
-        };
+        let url = try!(Url::parse(endpoint)
+            .map_err(|e| { error!("Unable to parse URL"); return e }));
 
         let mut headers = Headers::new();
 
@@ -72,25 +66,15 @@ impl GraphClient {
         headers.set(ContentType::json());
 
         let client = Client::new();
-        let mut res = match client.get(url.clone()).headers(headers.clone()).send() {
-            Ok(res) => res,
-            Err(e) => {
-                error!("Unable to connect to server: {}", e);
-                return Err(GraphError::new_error(Box::new(e)));
-            },
-        };
+        let mut res = try!(client.get(url.clone()).headers(headers.clone()).send()
+            .map_err(|e| { error!("Unable to connect to server: {}", &e); return e }));
 
         let mut buf = String::new();
-        if let Err(e) = res.read_to_string(&mut buf) {
-            return Err(GraphError::new_error(Box::new(e)));
-        }
+        try!(res.read_to_string(&mut buf));
 
         let service_root = try!(decode_service_root(&buf));
 
-        let neo4j_version = match Version::parse(&service_root.neo4j_version) {
-            Ok(value) => value,
-            Err(e) => return Err(GraphError::new_error(Box::new(e))),
-        };
+        let neo4j_version = try!(Version::parse(&service_root.neo4j_version));
         let cypher_endpoint = try!(Url::parse(&service_root.transaction));
 
         let cypher = Cypher::new(cypher_endpoint, headers.clone());

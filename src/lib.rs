@@ -115,7 +115,7 @@
 //! # fn main() {
 //! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data").unwrap();
 //! let statement = cypher_stmt!(
-//!     "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })" {
+//!     "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })", {
 //!         "name" => "Rust",
 //!         "level" => "low",
 //!         "safe" => true
@@ -123,7 +123,7 @@
 //! );
 //! graph.cypher().exec(statement).unwrap();
 //!
-//! let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n" {
+//! let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n", {
 //!     "name" => "Rust"
 //! });
 //!
@@ -138,19 +138,29 @@
 #![cfg_attr(feature = "serde_macros", feature(custom_attribute, custom_derive, plugin))]
 #![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
-extern crate hyper;
-extern crate url;
-extern crate serde;
-extern crate serde_json;
+pub extern crate hyper;
+pub extern crate url;
+pub extern crate serde;
+pub extern crate serde_json;
 
 #[cfg(feature = "rustc-serialize")]
-extern crate rustc_serialize;
+pub extern crate rustc_serialize;
 
 extern crate semver;
-extern crate time;
+pub extern crate time;
 
 #[macro_use]
-extern crate log;
+extern crate quick_error;
+
+#[macro_use]
+pub extern crate log;
+
+// pub use hyper;
+// pub use url;
+// pub use serde;
+// #[cfg(feature = "rustc-serialize")]
+// pub use rustc_serialize;
+// pub use time;
 
 #[cfg(feature = "serde_macros")]
 include!("lib.rs.in");

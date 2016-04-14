@@ -21,7 +21,7 @@ fn save_retrive_values() {
     let graph = GraphClient::connect(URI).unwrap();
 
     let stmt = cypher_stmt!(
-        "CREATE (n:INTG_TEST_MACROS_2 {name: {name}, level: {level}, safe: {safe}}) RETURN n.name, n.level, n.safe" {
+        "CREATE (n:INTG_TEST_MACROS_2 {name: {name}, level: {level}, safe: {safe}}) RETURN n.name, n.level, n.safe", {
             "name" => "Rust",
             "level" => "low",
             "safe" => true

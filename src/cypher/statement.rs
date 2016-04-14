@@ -13,7 +13,7 @@ use std::convert::From;
 /// // Without parameters
 /// let statement = cypher_stmt!("MATCH n RETURN n");
 /// // With parameters
-/// let statement = cypher_stmt!("MATCH n RETURN n" {
+/// let statement = cypher_stmt!("MATCH n RETURN n", {
 ///     "param1" => "value1",
 ///     "param2" => 2,
 ///     "param3" => 3.0
@@ -23,7 +23,7 @@ use std::convert::From;
 #[macro_export]
 macro_rules! cypher_stmt {
     ( $s:expr ) => { $crate::Statement::new($s) };
-    ( $s:expr { $( $k:expr => $v:expr ),+ } ) => {
+    ( $s:expr, { $( $k:expr => $v:expr ),+ } ) => {
         $crate::Statement::new($s)
             $(.with_param($k, $v))*
     }
@@ -201,10 +201,7 @@ mod inner {
         /// if the parameter cannot be converted back from `serde_json::value::Value`
         pub fn param<V: Decodable>(&self, key: &str) -> Option<Result<V, GraphError>> {
             self.parameters.get(key.into()).map(|v| {
-                let between = match serde_json::to_string(&v) {
-                    Ok(value) => value,
-                    Err(e) => return Err(GraphError::new_error(Box::new(e))),
-                };
+                let between = try!(serde_json::to_string(&v));
                 rustc_json::decode(&between).map_err(From::from)
             })
         }
@@ -320,12 +317,12 @@ mod tests {
 
     #[test]
     fn macro_single_param() {
-        let statement1 = cypher_stmt!("MATCH n RETURN n" {
+        let statement1 = cypher_stmt!("MATCH n RETURN n", {
             "name" => "test"
         });
 
         let param = 1;
-        let statement2 = cypher_stmt!("MATCH n RETURN n" {
+        let statement2 = cypher_stmt!("MATCH n RETURN n", {
             "value" => param
         });
 
@@ -336,7 +333,7 @@ mod tests {
     #[test]
     fn macro_multiple_params() {
         let param = 3f32;
-        let statement = cypher_stmt!("MATCH n RETURN n" {
+        let statement = cypher_stmt!("MATCH n RETURN n", {
             "param1" => "one",
             "param2" => 2,
             "param3" => param

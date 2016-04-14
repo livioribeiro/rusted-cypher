@@ -16,16 +16,17 @@ default = ["serde_codegen"]
 nightly = ["serde_macros"]
 
 [build-dependencies]
-serde_codegen = { version = "0.6", optional = true }
-syntex = "0.22"
+serde_codegen = { version = "0.7", optional = true }
+syntex = "0.31"
 
 [dependencies]
-hyper = "0.7"
+hyper = "0.8"
 url = "0.5"
-serde = "0.6"
-serde_json = "0.6"
-serde_macros = { version = "0.6", optional = true }
+serde = "0.7"
+serde_json = "0.7"
+serde_macros = { version = "0.7", optional = true }
 rustc-serialize = { version = "0.3", optional = true }
 semver = "0.2"
 time = "0.1"
+quick-error = "1.0"
 log = "0.3"

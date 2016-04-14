@@ -79,9 +79,9 @@ fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result
     for stmt in statements.iter() {
         if stmt.has_param_errors() {
             let entry = stmt.param_errors().iter().nth(1).unwrap();
-            return Err(GraphError::new(
-                &format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.statement(), entry.1)
-            ));
+            return Err(GraphError::Statement(
+                format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.statement(), entry.1)
+            ))
         }
     }
 
@@ -103,13 +103,7 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
     let mut json = BTreeMap::new();
     json.insert("statements", statements);
 
-    let json = match serde_json::to_string(&json) {
-        Ok(json) => json,
-        Err(e) => {
-            error!("Unable to serialize request: {}", e);
-            return Err(GraphError::new_error(Box::new(e)));
-        }
-    };
+    let json = try!(serde_json::to_string(&json));
 
     let req = client.post(endpoint)
         .headers(headers.clone())
@@ -122,17 +116,12 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
 }
 
 fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let value = json_de::from_reader(res);
-    let result = match value.and_then(|v: Value| json_value::from_value::<T>(v.clone())) {
-        Ok(result) => result,
-        Err(e) => {
-            error!("Unable to parse response: {}", e);
-            return Err(GraphError::new_error(Box::new(e)));
-        }
-    };
+    let result = try!(json_de::from_reader(res)
+        .and_then(|v: Value| json_value::from_value::<T>(v.clone()))
+        .map_err(|e| { error!("Unable to parse response: {}", &e); return e }));
 
     if result.errors().len() > 0 {
-        return Err(GraphError::new_neo4j_error(result.errors().clone()));
+        return Err(GraphError::Neo4j(result.errors().clone()))
     }
 
     Ok(result)
@@ -192,7 +181,7 @@ impl Cypher {
 
         match results.pop() {
             Some(result) => Ok(result),
-            None => Err(GraphError::new("No results returned from server")),
+            None => Err(GraphError::Other("No results returned from server".to_owned())),
         }
     }
 
@@ -244,7 +233,7 @@ impl<'a> CypherQuery<'a> {
 
         let result: QueryResult = try!(parse_response(&mut res));
         if result.errors().len() > 0 {
-            return Err(GraphError::new_neo4j_error(result.errors().clone()))
+            return Err(GraphError::Neo4j(result.errors().clone()))
         }
 
         Ok(result.results)

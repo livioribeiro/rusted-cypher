@@ -94,7 +94,7 @@ impl<'a> Row<'a> {
     pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
-            None => Err(GraphError::new(&format!("No such column: {}", &column))),
+            None => Err(GraphError::Statement(format!("No such column: {}", &column))),
         }
     }
 
@@ -102,7 +102,7 @@ impl<'a> Row<'a> {
     pub fn get<T: Decodable>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
-            None => Err(GraphError::new(&format!("No such column: {}", &column))),
+            None => Err(GraphError::Statement(format!("No such column: {}", &column))),
         }
     }
 
@@ -116,7 +116,7 @@ impl<'a> Row<'a> {
     pub fn get_n<T: Deserialize>(&self, column: usize) -> Result<T, GraphError> {
         let column_data = match self.data.get(column) {
             Some(c) => c.clone(),
-            None => return Err(GraphError::new(&format!("No column at index {}", column))),
+            None => return Err(GraphError::Statement(format!("No column at index {}", column))),
         };
 
         serde_json::value::from_value::<T>(column_data).map_err(From::from)
@@ -126,7 +126,7 @@ impl<'a> Row<'a> {
     pub fn get_n<T: Decodable>(&self, column: usize) -> Result<T, GraphError> {
         let column_data = match self.data.get(column) {
             Some(c) => c.clone(),
-            None => return Err(GraphError::new(&format!("No column at index {}", column))),
+            None => return Err(GraphError::Statement(format!("No column at index {}", column))),
         };
 
         let between = try!(serde_json::to_string(&column_data));

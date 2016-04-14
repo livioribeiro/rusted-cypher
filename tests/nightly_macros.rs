@@ -39,7 +39,7 @@ fn save_retrive_struct() {
 
     let graph = GraphClient::connect(URI).unwrap();
 
-    let stmt = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_MACROS_2 {lang}) RETURN n" {
+    let stmt = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_MACROS_2 {lang}) RETURN n", {
         "lang" => &rust
     });
 
