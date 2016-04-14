@@ -87,7 +87,7 @@ mod inner {
             self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
         }
 
-        /// Use `Self::param`
+        /// deprecated: use `Statement::param` instead
         pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
             self.param(key)
         }
@@ -97,7 +97,7 @@ mod inner {
             &self.parameters
         }
 
-        /// Use `Self::parameters`
+        /// deprecated: use `Statement::parameters` instead
         pub fn get_params(&self) -> &BTreeMap<String, Value> {
             self.parameters()
         }
@@ -109,7 +109,7 @@ mod inner {
                 .collect();
         }
 
-        /// Use `Self::set_parameters`
+        /// deprecated: use `Statement::set_parameters` instead
         pub fn set_params<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
             self.set_parameters(params);
         }
