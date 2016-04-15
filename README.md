@@ -105,7 +105,7 @@ There is a macro to help building statements
 
 ```rust
 let statement = cypher_stmt!(
-    "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })" {
+    "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })", {
         "name" => "Rust",
         "level" => "low",
         "safe" => true
@@ -113,7 +113,7 @@ let statement = cypher_stmt!(
 );
 graph.cypher().exec(statement).unwrap();
 
-let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n" {
+let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n", {
     "name" => "Rust"
 });
 
