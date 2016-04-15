@@ -1,3 +1,5 @@
+//! Error types returned by the `GraphClient`
+
 use std::error::Error;
 use std::fmt;
 use std::string::FromUtf8Error;

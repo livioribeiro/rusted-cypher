@@ -1,3 +1,5 @@
+//! Main interface for interacting with a neo4j server
+
 use std::collections::BTreeMap;
 use std::io::Read;
 use hyper::{Client, Url};
