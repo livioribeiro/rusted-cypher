@@ -155,13 +155,6 @@ extern crate quick_error;
 #[macro_use]
 pub extern crate log;
 
-// pub use hyper;
-// pub use url;
-// pub use serde;
-// #[cfg(feature = "rustc-serialize")]
-// pub use rustc_serialize;
-// pub use time;
-
 #[cfg(feature = "serde_macros")]
 include!("lib.rs.in");
 
