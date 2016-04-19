@@ -8,7 +8,7 @@ homepage = "https://github.com/livioribeiro/rusted-cypher"
 documentation = "http://livioribeiro.github.io/rusted_cypher/rusted_cypher/"
 readme = "README.md"
 keywords = ["neo4j", "database", "query", "cypher", "graph"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 build = "build.rs"
 
 [features]

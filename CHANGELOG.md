@@ -5,6 +5,7 @@
   `Statement::{param, parameters, set_parameters}`
 - Changed `cypher_stmt!` parameterized query
 - Updated dependencies
+- Changed license to MIT OR Apache-2.0
 
 # 0.8
 
