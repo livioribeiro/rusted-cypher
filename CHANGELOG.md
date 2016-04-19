@@ -1,6 +1,6 @@
 # 0.9
 
-- Changed errors to `enum` using quick-error
+- BC: Changed errors to `enum` using quick-error
 - Deprecated `Statement::{get_param, get_params, set_params}` in favor of
   `Statement::{param, parameters, set_parameters}`
 - Changed `cypher_stmt!` parameterized query

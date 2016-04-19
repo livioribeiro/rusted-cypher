@@ -10,6 +10,14 @@ readme = "README.md"
 keywords = ["neo4j", "database", "query", "cypher", "graph"]
 license = "MIT OR Apache-2.0"
 build = "build.rs"
+include = [
+  "src/**/*",
+  "build.rs",
+  "Cargo.toml",
+  "LICENSE-*",
+  "README.md",
+  "CHANGELOG.md",
+]
 
 [features]
 default = ["serde_codegen"]
