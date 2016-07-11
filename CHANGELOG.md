@@ -1,3 +1,7 @@
+# 0.9.1
+
+- Change build script to avoid being broken by Syntex updates.
+
 # 0.9
 
 - BC: Changed errors to `enum` using quick-error
