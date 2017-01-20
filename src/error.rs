@@ -37,8 +37,8 @@ quick_error! {
         Neo4j(err: Vec<Neo4jError>) {
             from()
         }
-        Statement(err: String) {}
-        Transaction(err: String) {}
+        Statement(err: String)
+        Transaction(err: String)
         Io(err: io::Error) {
             from()
         }

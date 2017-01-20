@@ -62,6 +62,7 @@ pub use self::result::CypherResult;
 
 use std::convert::Into;
 use std::collections::BTreeMap;
+
 use hyper::client::{Client, Response};
 use hyper::header::Headers;
 use url::Url;
@@ -92,18 +93,17 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
 }
 
 fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let result = json_de::from_reader(res)
-        .and_then(|v: Value| json_value::from_value::<T>(v.clone()))
-        .map_err(|e| {
-            error!("Unable to parse response: {}", &e);
-            e
-        })?;
+    let result: Value = json_de::from_reader(res)?;
 
-    if result.errors().len() > 0 {
-        return Err(GraphError::Neo4j(result.errors().clone()))
+    if let Some(errors) = result.find("errors") {
+        return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
     }
 
-    Ok(result)
+    json_value::from_value::<T>(result)
+        .map_err(|e| {
+            error!("Unable to parse response: {}", &e);
+            From::from(e)
+        })
 }
 
 /// Represents the cypher endpoint of a neo4j server

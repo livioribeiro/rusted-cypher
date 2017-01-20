@@ -5,11 +5,11 @@ use std::io::Read;
 use hyper::{Client, Url};
 use hyper::header::{Authorization, Basic, ContentType, Headers};
 use serde_json::{self, Value};
+use serde_json::value as json_value;
 use semver::Version;
 
 use cypher::Cypher;
 use error::GraphError;
-use cypher::result::QueryResult;
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -30,17 +30,16 @@ pub struct ServiceRoot {
 }
 
 fn decode_service_root<R: Read>(reader: &mut R) -> Result<ServiceRoot, GraphError> {
-    let mut bytes: Vec<u8> = vec![];
-    reader.read_to_end(&mut bytes)?;
+    let result: Value = serde_json::de::from_reader(reader)?;
 
-    let result = serde_json::de::from_slice::<ServiceRoot>(&bytes);
-
-    result.map_err(|_| {
-        match serde_json::de::from_slice::<QueryResult>(&bytes) {
-            Ok(result) => GraphError::Neo4j(result.errors),
-            Err(e) => From::from(e),
+    if let Some(errors) = result.find("errors") {
+        if result.find("results").is_none() {
+            return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
         }
-    })
+    }
+
+    json_value::from_value(result)
+        .map_err(From::from)
 }
 
 #[allow(dead_code)]
