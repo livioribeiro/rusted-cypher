@@ -1,3 +1,12 @@
+# 1.0.0
+
+- Updated dependencies
+- Added `serde_derive` for serialization
+- Refactored code to use `?` instead of `try!`
+- Droped support for `rustc-serialize`
+- Removed deprecated methods in `Statement`
+- Small optimizations
+
 # 0.9.1
 
 - Change build script to avoid being broken by Syntex updates.
