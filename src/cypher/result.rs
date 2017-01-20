@@ -1,14 +1,8 @@
 use std::convert::From;
 
-#[cfg(not(feature = "rustc-serialize"))]
 use serde::Deserialize;
 use serde_json;
 use serde_json::value::Value;
-
-#[cfg(feature = "rustc-serialize")]
-use rustc_serialize::Decodable;
-#[cfg(feature = "rustc-serialize")]
-use rustc_serialize::json as rustc_json;
 
 use ::error::{GraphError, Neo4jError};
 
@@ -90,16 +84,7 @@ impl<'a> Row<'a> {
     ///
     /// If the column does not exist in the row, an `Err` is returned with the message
     /// `"No such column: {column_name}"`.
-    #[cfg(not(feature = "rustc-serialize"))]
     pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, GraphError> {
-        match self.columns.iter().position(|c| c == column) {
-            Some(index) => self.get_n(index),
-            None => Err(GraphError::Statement(format!("No such column: {}", &column))),
-        }
-    }
-
-    #[cfg(feature = "rustc-serialize")]
-    pub fn get<T: Decodable>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
             None => Err(GraphError::Statement(format!("No such column: {}", &column))),
@@ -112,7 +97,6 @@ impl<'a> Row<'a> {
     ///
     /// If the column number is not within the columns length, and `Err` is returned with the
     /// message `"No such column at index {column_number}"`.
-    #[cfg(not(feature = "rustc-serialize"))]
     pub fn get_n<T: Deserialize>(&self, column: usize) -> Result<T, GraphError> {
         let column_data = match self.data.get(column) {
             Some(c) => c.clone(),
@@ -120,17 +104,6 @@ impl<'a> Row<'a> {
         };
 
         serde_json::value::from_value::<T>(column_data).map_err(From::from)
-    }
-
-    #[cfg(feature = "rustc-serialize")]
-    pub fn get_n<T: Decodable>(&self, column: usize) -> Result<T, GraphError> {
-        let column_data = match self.data.get(column) {
-            Some(c) => c.clone(),
-            None => return Err(GraphError::Statement(format!("No column at index {}", column))),
-        };
-
-        let between = try!(serde_json::to_string(&column_data));
-        rustc_json::decode(&between).map_err(From::from)
     }
 }
 

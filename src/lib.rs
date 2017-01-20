@@ -135,16 +135,13 @@
 //! # }
 //! ```
 
-#![cfg_attr(feature = "serde_macros", feature(custom_attribute, custom_derive, plugin))]
-#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
+extern crate hyper;
+extern crate url;
+extern crate serde;
+extern crate serde_json;
 
-pub extern crate hyper;
-pub extern crate url;
-pub extern crate serde;
-pub extern crate serde_json;
-
-#[cfg(feature = "rustc-serialize")]
-pub extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
 
 extern crate semver;
 pub extern crate time;
@@ -155,8 +152,9 @@ extern crate quick_error;
 #[macro_use]
 pub extern crate log;
 
-#[cfg(feature = "serde_macros")]
-include!("lib.rs.in");
+pub mod cypher;
+pub mod graph;
+pub mod error;
 
-#[cfg(not(feature = "serde_macros"))]
-include!(concat!(env!("OUT_DIR"), "/lib.rs"));
+pub use graph::GraphClient;
+pub use cypher::Statement;

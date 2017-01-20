@@ -74,36 +74,13 @@ use serde_json::value as json_value;
 use self::result::{QueryResult, ResultTrait};
 use ::error::GraphError;
 
-#[cfg(feature = "rustc-serialize")]
-fn check_param_errors_for_rustc_serialize(statements: &Vec<Statement>) -> Result<(), GraphError> {
-    for stmt in statements.iter() {
-        if stmt.has_param_errors() {
-            let entry = stmt.param_errors().iter().nth(1).unwrap();
-            return Err(GraphError::Statement(
-                format!("Error at parameter '{}' of query '{}': {}", entry.0, stmt.statement(), entry.1)
-            ))
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(not(feature = "rustc-serialize"))]
-fn check_param_errors_for_rustc_serialize(_: &Vec<Statement>) -> Result<(), GraphError> {
-    Ok(())
-}
-
 fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
     -> Result<Response, GraphError> {
-
-    if cfg!(feature = "rustc-serialize") {
-        try!(check_param_errors_for_rustc_serialize(&statements));
-    }
 
     let mut json = BTreeMap::new();
     json.insert("statements", statements);
 
-    let json = try!(serde_json::to_string(&json));
+    let json = serde_json::to_string(&json)?;
 
     let req = client.post(endpoint)
         .headers(headers.clone())
@@ -111,14 +88,16 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
 
     debug!("Seding query:\n{}", json_ser::to_string_pretty(&json).unwrap_or(String::new()));
 
-    let res = try!(req.send());
-    Ok(res)
+    req.send().map_err(From::from)
 }
 
 fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let result = try!(json_de::from_reader(res)
+    let result = json_de::from_reader(res)
         .and_then(|v: Value| json_value::from_value::<T>(v.clone()))
-        .map_err(|e| { error!("Unable to parse response: {}", &e); return e }));
+        .map_err(|e| {
+            error!("Unable to parse response: {}", &e);
+            e
+        })?;
 
     if result.errors().len() > 0 {
         return Err(GraphError::Neo4j(result.errors().clone()))
@@ -142,16 +121,21 @@ impl Cypher {
     ///
     /// Its arguments are the cypher transaction endpoint and the HTTP headers containing HTTP
     /// Basic Authentication, if needed.
-    pub fn new(endpoint: Url, headers: Headers) -> Self {
+    pub fn new(endpoint: Url, client: Client, headers: Headers) -> Self {
         Cypher {
             endpoint: endpoint,
-            client: Client::new(),
+            client: client,
             headers: headers,
         }
     }
 
+    #[allow(dead_code)]
     fn endpoint(&self) -> &Url {
         &self.endpoint
+    }
+
+    fn endpoint_commit(&self) -> String {
+        format!("{}/{}", &self.endpoint, "commit")
     }
 
     fn client(&self) -> &Client {
@@ -174,15 +158,11 @@ impl Cypher {
     ///
     /// Parameter can be anything that implements `Into<Statement>`, `&str` or `Statement` itself
     pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
-        let mut query = self.query();
-        query.add_statement(statement);
-
-        let mut results = try!(query.send());
-
-        match results.pop() {
-            Some(result) => Ok(result),
-            None => Err(GraphError::Other("No results returned from server".to_owned())),
-        }
+        self.query()
+            .with_statement(statement)
+            .send()?
+            .pop()
+            .ok_or(GraphError::Other("No results returned from server".to_owned()))
     }
 
     /// Creates a new `Transaction`
@@ -226,12 +206,12 @@ impl<'a> CypherQuery<'a> {
     /// The statements contained in the query are sent to the server and the results are parsed
     /// into a `Vec<CypherResult>` in order to match the response of the neo4j api.
     pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
-        let client = self.cypher.client();
-        let endpoint = format!("{}/{}", self.cypher.endpoint(), "commit");
-        let headers = self.cypher.headers();
-        let mut res = try!(send_query(client, &endpoint, headers, self.statements));
+        let mut res = send_query(self.cypher.client(),
+                   &self.cypher.endpoint_commit(),
+                   self.cypher.headers(),
+                   self.statements)?;
 
-        let result: QueryResult = try!(parse_response(&mut res));
+        let result: QueryResult = parse_response(&mut res)?;
         if result.errors().len() > 0 {
             return Err(GraphError::Neo4j(result.errors().clone()))
         }
@@ -246,7 +226,7 @@ mod tests {
     use ::cypher::result::Row;
 
     fn get_cypher() -> Cypher {
-        use hyper::Url;
+        use hyper::{Client, Url};
         use hyper::header::{Authorization, Basic, ContentType, Headers};
 
         let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
@@ -260,7 +240,7 @@ mod tests {
         ));
         headers.set(ContentType::json());
 
-        Cypher::new(cypher_endpoint, headers)
+        Cypher::new(cypher_endpoint, Client::new(), headers)
     }
 
     #[test]

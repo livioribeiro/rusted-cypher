@@ -19,22 +19,13 @@ include = [
   "CHANGELOG.md",
 ]
 
-[features]
-default = ["serde_codegen"]
-nightly = ["serde_macros"]
-
-[build-dependencies]
-serde_codegen = { version = "0.7", optional = true }
-syntex = "0.31"
-
 [dependencies]
-hyper = "0.8"
-url = "0.5"
-serde = "0.7"
-serde_json = "0.7"
-serde_macros = { version = "0.7", optional = true }
-rustc-serialize = { version = "0.3", optional = true }
-semver = "0.2"
+hyper = "0.10"
+url = "1.3"
+serde = "0.8"
+serde_json = "0.8"
+serde_derive = "0.8"
+semver = "0.5"
 time = "0.1"
-quick-error = "1.0"
+quick-error = "1.1"
 log = "0.3"

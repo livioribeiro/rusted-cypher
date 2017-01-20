@@ -9,7 +9,7 @@ use semver::Version;
 
 use cypher::Cypher;
 use error::GraphError;
-use cypher::result::{QueryResult, ResultTrait};
+use cypher::result::QueryResult;
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -29,12 +29,15 @@ pub struct ServiceRoot {
     pub neo4j_version: String,
 }
 
-fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
-    let result = serde_json::de::from_str::<ServiceRoot>(json_string);
+fn decode_service_root<R: Read>(reader: &mut R) -> Result<ServiceRoot, GraphError> {
+    let mut bytes: Vec<u8> = vec![];
+    reader.read_to_end(&mut bytes)?;
+
+    let result = serde_json::de::from_slice::<ServiceRoot>(&bytes);
 
     result.map_err(|_| {
-        match serde_json::de::from_str::<QueryResult>(json_string) {
-            Ok(result) => GraphError::Neo4j(result.errors().clone()),
+        match serde_json::de::from_slice::<QueryResult>(&bytes) {
+            Ok(result) => GraphError::Neo4j(result.errors),
             Err(e) => From::from(e),
         }
     })
@@ -42,7 +45,6 @@ fn decode_service_root(json_string: &str) -> Result<ServiceRoot, GraphError> {
 
 #[allow(dead_code)]
 pub struct GraphClient {
-    client: Client,
     headers: Headers,
     service_root: ServiceRoot,
     neo4j_version: Version,
@@ -50,39 +52,44 @@ pub struct GraphClient {
 }
 
 impl GraphClient {
-    pub fn connect(endpoint: &str) -> Result<Self, GraphError> {
-        let url = try!(Url::parse(endpoint)
-            .map_err(|e| { error!("Unable to parse URL"); return e }));
+    pub fn connect<T: AsRef<str>>(endpoint: T) -> Result<Self, GraphError> {
+        let endpoint = endpoint.as_ref();
+        let url = Url::parse(endpoint)
+            .map_err(|e| {
+                error!("Unable to parse URL");
+                e
+            })?;
 
         let mut headers = Headers::new();
 
-        url.username().map(|username| url.password().map(|password| {
+        url.password().map(|password| {
             headers.set(Authorization(
                 Basic {
-                    username: username.to_owned(),
+                    username: url.username().to_owned(),
                     password: Some(password.to_owned()),
                 }
             ));
-        }));
+        });
 
         headers.set(ContentType::json());
 
         let client = Client::new();
-        let mut res = try!(client.get(url.clone()).headers(headers.clone()).send()
-            .map_err(|e| { error!("Unable to connect to server: {}", &e); return e }));
+        let mut res = client.get(endpoint)
+            .headers(headers.clone())
+            .send()
+            .map_err(|e| {
+                error!("Unable to connect to server: {}", &e);
+                e
+            })?;
 
-        let mut buf = String::new();
-        try!(res.read_to_string(&mut buf));
+        let service_root = decode_service_root(&mut res)?;
 
-        let service_root = try!(decode_service_root(&buf));
+        let neo4j_version = Version::parse(&service_root.neo4j_version)?;
+        let cypher_endpoint = Url::parse(&service_root.transaction)?;
 
-        let neo4j_version = try!(Version::parse(&service_root.neo4j_version));
-        let cypher_endpoint = try!(Url::parse(&service_root.transaction));
-
-        let cypher = Cypher::new(cypher_endpoint, headers.clone());
+        let cypher = Cypher::new(cypher_endpoint, client, headers.clone());
 
         Ok(GraphClient {
-            client: Client::new(),
             headers: headers,
             service_root: service_root,
             neo4j_version: neo4j_version,
@@ -119,7 +126,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let mut query = graph.cypher().query();
-        query.add_statement("MATCH n RETURN n");
+        query.add_statement("MATCH (n) RETURN n");
 
         let result = query.send().unwrap();
 
@@ -132,7 +139,7 @@ mod tests {
         let graph = GraphClient::connect(URL).unwrap();
 
         let (transaction, result) = graph.cypher().transaction()
-            .with_statement("MATCH n RETURN n")
+            .with_statement("MATCH (n) RETURN n")
             .begin()
             .unwrap();
 

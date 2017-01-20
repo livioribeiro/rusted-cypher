@@ -81,6 +81,7 @@
 use std::any::Any;
 use std::convert::Into;
 use std::marker::PhantomData;
+use std::mem;
 use hyper::Client;
 use hyper::header::{Headers, Location};
 use time::{self, Tm};
@@ -188,23 +189,21 @@ impl<'a> Transaction<'a, Created> {
     pub fn begin(self) -> Result<(Transaction<'a, Started>, Vec<CypherResult>), GraphError> {
         debug!("Beginning transaction");
 
-        let mut res = try!(super::send_query(&self.client,
-                                             &self.transaction,
-                                             self.headers,
-                                             self.statements));
+        let mut res = super::send_query(&self.client,
+                                        &self.transaction,
+                                        self.headers,
+                                        self.statements)?;
 
-        let result: TransactionResult = try!(super::parse_response(&mut res));
+        let mut result: TransactionResult = super::parse_response(&mut res)?;
 
-        let transaction = match res.headers.get::<Location>() {
-            Some(location) => location.0.to_owned(),
-            None => {
+        let transaction = res.headers.get::<Location>()
+            .map(|location| location.0.to_owned())
+            .ok_or_else(|| {
                 error!("No transaction URI returned from server");
-                return Err(GraphError::Transaction("No transaction URI returned from server".to_owned()));
-            },
-        };
+                GraphError::Transaction("No transaction URI returned from server".to_owned())
+            })?;
 
-        let mut expires = result.transaction.expires;
-        let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
+        let expires = time::strptime(&mut result.transaction.expires, DATETIME_RFC822)?;
 
         debug!("Transaction started at {}, expires in {}", transaction, expires.rfc822z());
 
@@ -236,27 +235,24 @@ impl<'a> Transaction<'a, Started> {
         self.statements.clear();
         self.add_statement(statement);
 
-        let mut results = try!(self.send());
-        let result = try!(results.pop().ok_or(
-            GraphError::Statement("Server returned no results".to_owned())
-        ));
+        let mut results = self.send()?;
+        let result = results.pop()
+            .ok_or(GraphError::Statement("Server returned no results".to_owned()))?;
 
         Ok(result)
     }
 
     /// Executes the statements added via `add_statement` or `with_statement`
     pub fn send(&mut self) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = try!(super::send_query(
-            &self.client, &self.transaction, self.headers, self.statements.clone()
-        ));
-        self.statements.clear();
+        let mut statements = vec![];
+        mem::swap(&mut statements, &mut self.statements);
+        let mut res = super::send_query(&self.client,
+                                        &self.transaction,
+                                        self.headers,
+                                        statements)?;
 
-        let result: TransactionResult = try!(super::parse_response(&mut res));
-
-        let mut expires = result.transaction.expires;
-        let expires = try!(time::strptime(&mut expires, DATETIME_RFC822));
-
-        self.expires = expires;
+        let mut result: TransactionResult = super::parse_response(&mut res)?;
+        self.expires = time::strptime(&mut result.transaction.expires, DATETIME_RFC822)?;
 
         Ok(result.results)
     }
@@ -264,11 +260,12 @@ impl<'a> Transaction<'a, Started> {
     /// Commits the transaction, returning the results
     pub fn commit(self) -> Result<Vec<CypherResult>, GraphError> {
         debug!("Commiting transaction {}", self.transaction);
-        let mut res = try!(super::send_query(
-            &self.client, &self.commit, self.headers, self.statements
-        ));
+        let mut res = super::send_query(&self.client,
+                                        &self.commit,
+                                        self.headers,
+                                        self.statements)?;
 
-        let result: CommitResult = try!(super::parse_response(&mut res));
+        let result: CommitResult = super::parse_response(&mut res)?;
         debug!("Transaction commited {}", self.transaction);
 
         Ok(result.results)
@@ -277,10 +274,11 @@ impl<'a> Transaction<'a, Started> {
     /// Rollback the transaction
     pub fn rollback(self) -> Result<(), GraphError> {
         debug!("Rolling back transaction {}", self.transaction);
-        let req = self.client.delete(&self.transaction).headers(self.headers.clone());
-        let mut res = try!(req.send());
+        let mut res = self.client.delete(&self.transaction)
+            .headers(self.headers.clone())
+            .send()?;
 
-        try!(super::parse_response::<CommitResult>(&mut res));
+        super::parse_response::<CommitResult>(&mut res)?;
         debug!("Transaction rolled back {}", self.transaction);
 
         Ok(())
@@ -290,8 +288,11 @@ impl<'a> Transaction<'a, Started> {
     ///
     /// All transactions have a timeout. Use this method to keep a transaction alive.
     pub fn reset_timeout(&mut self) -> Result<(), GraphError> {
-        try!(super::send_query(&self.client, &self.transaction, self.headers, vec![]));
-        Ok(())
+        super::send_query(&self.client,
+                          &self.transaction,
+                          self.headers,
+                          vec![])
+            .map(|_| ())
     }
 }
 

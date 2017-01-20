@@ -10,9 +10,6 @@ use serde_json;
 use time;
 use semver::SemVerError;
 
-#[cfg(feature = "rustc-serialize")]
-use rustc_serialize::json as rustc_json;
-
 #[derive(Clone, Debug, Deserialize)]
 pub struct Neo4jError {
     pub message: String,
@@ -66,12 +63,5 @@ quick_error! {
         Other(err: String) {
             from()
         }
-    }
-}
-
-#[cfg(feature = "rustc-serialize")]
-impl From<rustc_json::DecoderError> for GraphError {
-    fn from(e: rustc_json::DecoderError) -> GraphError {
-        GraphError::Other(format!("DecoderError: {}", e))
     }
 }

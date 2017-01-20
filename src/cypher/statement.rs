@@ -1,4 +1,7 @@
 use std::convert::From;
+use std::collections::BTreeMap;
+use serde::{Serialize, Deserialize};
+use serde_json::{self, Value};
 
 /// Helper macro to simplify the creation of complex statements
 ///
@@ -29,234 +32,78 @@ macro_rules! cypher_stmt {
     }
 }
 
-#[cfg(not(feature = "rustc-serialize"))]
-mod inner {
-    use std::collections::BTreeMap;
-    use serde::{Serialize, Deserialize};
-    use serde_json::{self, Value};
+/// Represents a statement to be sent to the server
+#[derive(Clone, Debug, Serialize)]
+pub struct Statement {
+    statement: String,
+    parameters: BTreeMap<String, Value>,
+}
 
-    /// Represents a statement to be sent to the server
-    #[derive(Clone, Debug, Serialize)]
-    pub struct Statement {
-        statement: String,
-        parameters: BTreeMap<String, Value>,
+impl Statement  {
+    pub fn new(statement: &str) -> Self {
+        Statement {
+            statement: statement.to_owned(),
+            parameters: BTreeMap::new(),
+        }
     }
 
-    impl Statement  {
-        pub fn new(statement: &str) -> Self {
-            Statement {
-                statement: statement.to_owned(),
-                parameters: BTreeMap::new(),
-            }
-        }
+    /// Returns the statement text
+    pub fn statement(&self) -> &str {
+        &self.statement
+    }
 
-        /// Returns the statement text
-        pub fn statement(&self) -> &str {
-            &self.statement
-        }
+    /// Adds parameter in builder style
+    ///
+    /// This method consumes `self` and returns it with the parameter added, so the binding does
+    /// not need to be mutable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use rusted_cypher::Statement;
+    /// let statement = Statement::new("MATCH n RETURN n")
+    ///     .with_param("param1", "value1")
+    ///     .with_param("param2", 2)
+    ///     .with_param("param3", 3.0);
+    /// ```
+    pub fn with_param<V: Serialize + Copy>(mut self, key: &str, value: V) -> Self {
+        self.add_param(key, value);
+        self
+    }
 
-        /// Adds parameter in builder style
-        ///
-        /// This method consumes `self` and returns it with the parameter added, so the binding does
-        /// not need to be mutable
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # use rusted_cypher::Statement;
-        /// let statement = Statement::new("MATCH n RETURN n")
-        ///     .with_param("param1", "value1")
-        ///     .with_param("param2", 2)
-        ///     .with_param("param3", 3.0);
-        /// ```
-        pub fn with_param<V: Serialize + Copy>(mut self, key: &str, value: V) -> Self {
-            self.add_param(key, value);
-            self
-        }
+    /// Adds parameter to the `Statement`
+    pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
+        self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
+    }
 
-        /// Adds parameter to the `Statement`
-        pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
-            self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
-        }
+    /// Gets the value of the parameter
+    ///
+    /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
+    /// if the parameter cannot be converted back from `serde_json::value::Value`
+    pub fn param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
+        self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
+    }
 
-        /// Gets the value of the parameter
-        ///
-        /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
-        /// if the parameter cannot be converted back from `serde_json::value::Value`
-        pub fn param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
-            self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
-        }
+    /// Gets a reference to the underlying parameters `BTreeMap`
+    pub fn parameters(&self) -> &BTreeMap<String, Value> {
+        &self.parameters
+    }
 
-        /// deprecated: use `Statement::param` instead
-        pub fn get_param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
-            self.param(key)
-        }
+    /// Sets the parameters `BTreeMap`, overriding current values
+    pub fn set_parameters<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
+        self.parameters = params.iter()
+            .map(|(k, v)| (k.to_owned(), serde_json::value::to_value(&v)))
+            .collect();
+    }
 
-        /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn parameters(&self) -> &BTreeMap<String, Value> {
-            &self.parameters
-        }
-
-        /// deprecated: use `Statement::parameters` instead
-        pub fn get_params(&self) -> &BTreeMap<String, Value> {
-            self.parameters()
-        }
-
-        /// Sets the parameters `BTreeMap`, overriding current values
-        pub fn set_parameters<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
-            self.parameters = params.iter()
-                .map(|(k, v)| (k.to_owned(), serde_json::value::to_value(&v)))
-                .collect();
-        }
-
-        /// deprecated: use `Statement::set_parameters` instead
-        pub fn set_params<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
-            self.set_parameters(params);
-        }
-
-        /// Removes parameter from the statment
-        ///
-        /// Trying to remove a non-existent parameter has no effect
-        pub fn remove_param(&mut self, key: &str) {
-            self.parameters.remove(key);
-        }
+    /// Removes parameter from the statment
+    ///
+    /// Trying to remove a non-existent parameter has no effect
+    pub fn remove_param(&mut self, key: &str) {
+        self.parameters.remove(key);
     }
 }
 
-#[cfg(feature = "rustc-serialize")]
-mod inner {
-    use std::collections::BTreeMap;
-    use std::error::Error;
-    use rustc_serialize::{Encodable, Decodable};
-    use rustc_serialize::json as rustc_json;
-    use serde_json::{self, Value};
-    use ::error::GraphError;
-
-    /// Represents a statement to be sent to the server
-    #[derive(Clone, Debug, Serialize)]
-    pub struct Statement {
-        statement: String,
-        parameters: BTreeMap<String, Value>,
-        #[serde(skip_serializing)]
-        param_errors: Vec<(String, String)>,
-    }
-
-    impl Statement  {
-        pub fn new(statement: &str) -> Self {
-            Statement {
-                statement: statement.to_owned(),
-                parameters: BTreeMap::new(),
-                param_errors: Vec::new(),
-            }
-        }
-
-        /// Returns the statement text
-        pub fn statement(&self) -> &str {
-            &self.statement
-        }
-
-        /// Adds parameter in builder style
-        ///
-        /// This method consumes `self` and returns it with the parameter added, so the binding does
-        /// not need to be mutable
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # use rusted_cypher::Statement;
-        /// let statement = Statement::new("MATCH n RETURN n")
-        ///     .with_param("param1", "value1")
-        ///     .with_param("param2", 2)
-        ///     .with_param("param3", 3.0);
-        /// ```
-        pub fn with_param<V: Encodable + Copy>(mut self, key: &str, value: V) -> Self {
-            self.add_param(key, value);
-            self
-        }
-
-        /// Adds parameter to the `Statement`
-        pub fn add_param<V: Encodable + Copy>(&mut self, key: &str, value: V) {
-            let between = match rustc_json::encode(&value) {
-                Ok(value) => value,
-                Err(e) => {
-                    self.param_errors.push((key.to_owned(), format!("{}", e)));
-                    return
-                }
-            };
-
-            let value = match serde_json::from_str::<Value>(&between) {
-                Ok(value) => value,
-                Err(e) => {
-                    self.param_errors.push((key.to_owned(), format!("{}", e)));
-                    return
-                }
-            };
-
-            self.parameters.insert(key.to_owned(), value);
-        }
-
-        /// Gets the value of the parameter
-        ///
-        /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
-        /// if the parameter cannot be converted back from `serde_json::value::Value`
-        pub fn param<V: Decodable>(&self, key: &str) -> Option<Result<V, GraphError>> {
-            self.parameters.get(key.into()).map(|v| {
-                let between = try!(serde_json::to_string(&v));
-                rustc_json::decode(&between).map_err(From::from)
-            })
-        }
-
-        /// Use `Self::param`
-        pub fn get_param<V: Decodable>(&self, key: &str) -> Option<Result<V, GraphError>> {
-            self.param(key)
-        }
-
-        /// Gets a reference to the underlying parameters `BTreeMap`
-        pub fn parameters(&self) -> &BTreeMap<String, Value> {
-            &self.parameters
-        }
-
-        /// Use `Self::parameters`
-        pub fn get_params(&self) -> &BTreeMap<String, Value> {
-            self.parameters()
-        }
-
-        /// Sets the parameters `BTreeMap`, overriding current values
-        pub fn set_parameters<V: Encodable>(&mut self, params: &BTreeMap<String, V>) -> Result<(), Box<Error>> {
-            let mut new_params: BTreeMap<String, Value> = BTreeMap::new();
-
-            for (k, v) in params.iter() {
-                let between = try!(rustc_json::encode(&v));
-                let value: Value = try!(serde_json::from_str(&between));
-                new_params.insert(k.to_owned(), value);
-            }
-
-            Ok(())
-        }
-
-        /// Use `Self::set_parameters`
-        pub fn set_params<V: Encodable>(&mut self, params: &BTreeMap<String, V>) -> Result<(), Box<Error>> {
-            self.set_parameters(params)
-        }
-
-        /// Removes parameter from the statment
-        ///
-        /// Trying to remove a non-existent parameter has no effect
-        pub fn remove_param(&mut self, key: &str) {
-            self.parameters.remove(key);
-        }
-
-        pub fn has_param_errors(&self) -> bool {
-            !self.param_errors.is_empty()
-        }
-
-        pub fn param_errors(&self) -> &Vec<(String, String)> {
-            &self.param_errors
-        }
-    }
-}
-
-pub use self::inner::Statement;
 
 impl<'a> From<&'a str> for Statement {
     fn from(stmt: &str) -> Self {
