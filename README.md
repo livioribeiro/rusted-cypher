@@ -2,11 +2,8 @@
 
 Rust crate for accessing the cypher endpoint of a neo4j server
 
-This is a prototype for accessing the cypher endpoint of a neo4j server, like a sql
-driver for a relational database.
-
-You can execute queries inside a transaction or simply execute queries that commit immediately.
-
+This crate allows you to send cypher queries to the REST endpoint of a neo4j database. You can
+execute queries inside a transaction or simply send queries that commit immediately.
 
 ## Examples
 
