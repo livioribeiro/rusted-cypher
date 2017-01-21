@@ -96,7 +96,9 @@ fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T,
     let result: Value = json_de::from_reader(res)?;
 
     if let Some(errors) = result.find("errors") {
-        return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
+        if result.find("results").is_none() {
+            return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
+        }
     }
 
     json_value::from_value::<T>(result)
