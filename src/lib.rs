@@ -130,13 +130,13 @@ extern crate serde_json;
 extern crate serde_derive;
 
 extern crate semver;
-pub extern crate time;
+extern crate time;
 
 #[macro_use]
 extern crate quick_error;
 
 #[macro_use]
-pub extern crate log;
+extern crate log;
 
 pub mod cypher;
 pub mod graph;
