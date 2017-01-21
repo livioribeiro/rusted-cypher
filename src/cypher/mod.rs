@@ -62,9 +62,9 @@ pub use self::result::CypherResult;
 
 use std::collections::BTreeMap;
 
+use hyper::Url;
 use hyper::client::{Client, Response};
 use hyper::header::Headers;
-use url::Url;
 use serde::Deserialize;
 use serde_json::{self, Value};
 use serde_json::de as json_de;

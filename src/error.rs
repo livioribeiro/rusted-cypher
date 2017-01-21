@@ -5,7 +5,6 @@ use std::fmt;
 use std::string::FromUtf8Error;
 use std::io;
 use hyper;
-use url;
 use serde_json;
 use time;
 use semver::SemVerError;
@@ -45,7 +44,7 @@ quick_error! {
         FromUtf8(err: FromUtf8Error) {
             from()
         }
-        UrlParse(err: url::ParseError) {
+        UrlParse(err: hyper::error::ParseError) {
             from()
         }
         Hyper(err: hyper::Error) {
