@@ -5,6 +5,11 @@ rust:
   - beta
   - nightly
 
+addons:
+  apt:
+    packages:
+      - oracle-java8-installer
+
 jdk:
   - oraclejdk8  # needed for local Neo4j
 
@@ -17,6 +22,13 @@ before_install:
   # install Neo4j locally:
   - wget dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - tar -xzf neo4j-community-$NEO4J_VERSION-unix.tar.gz
+  - |
+      if [[ $NEO4J_VERSION == "2"* ]]
+      then
+        sed -i.bak s/dbms.security.auth_enabled=true/dbms.security.auth_enabled=false/g neo4j-community-$NEO4J_VERSION/conf/neo4j-server.properties
+      else
+        sed -i.bak s/\#dbms.security.auth_enabled=false/dbms.security.auth_enabled=false/g neo4j-community-$NEO4J_VERSION/conf/neo4j.conf
+      fi
   - neo4j-community-$NEO4J_VERSION/bin/neo4j start
 
 matrix:
