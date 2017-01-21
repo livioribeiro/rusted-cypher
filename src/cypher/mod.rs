@@ -60,7 +60,6 @@ pub use self::statement::Statement;
 pub use self::transaction::Transaction;
 pub use self::result::CypherResult;
 
-use std::convert::Into;
 use std::collections::BTreeMap;
 
 use hyper::client::{Client, Response};
@@ -158,7 +157,8 @@ impl Cypher {
 
     /// Executes the given `Statement`
     ///
-    /// Parameter can be anything that implements `Into<Statement>`, `&str` or `Statement` itself
+    /// Parameter can be anything that implements `Into<Statement>`, `Into<String>` or `Statement`
+    /// itself
     pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
         self.query()
             .with_statement(statement)
@@ -175,7 +175,8 @@ impl Cypher {
 
 /// Represents a cypher query
 ///
-/// A cypher query is composed by statements, each one containing the query itself and its parameters.
+/// A cypher query is composed by statements, each one containing the query itself and its
+/// parameters.
 ///
 /// The query parameters must implement `Serialize` so they can be serialized into JSON in order to
 /// be sent to the server

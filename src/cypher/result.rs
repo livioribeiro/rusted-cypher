@@ -1,5 +1,3 @@
-use std::convert::From;
-
 use serde::Deserialize;
 use serde_json;
 use serde_json::value::Value;
@@ -87,7 +85,7 @@ impl<'a> Row<'a> {
     pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
-            None => Err(GraphError::Statement(format!("No such column: {}", &column))),
+            None => Err(GraphError::Statement(format!("No such column: {}", column))),
         }
     }
 

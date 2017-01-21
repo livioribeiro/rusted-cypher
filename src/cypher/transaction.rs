@@ -79,7 +79,6 @@
 //! ```
 
 use std::any::Any;
-use std::convert::Into;
 use std::marker::PhantomData;
 use std::mem;
 use hyper::Client;

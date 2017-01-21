@@ -1,4 +1,3 @@
-use std::convert::From;
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
@@ -40,9 +39,9 @@ pub struct Statement {
 }
 
 impl Statement  {
-    pub fn new(statement: &str) -> Self {
+    pub fn new<T: Into<String>>(statement: T) -> Self {
         Statement {
-            statement: statement.to_owned(),
+            statement: statement.into(),
             parameters: BTreeMap::new(),
         }
     }
@@ -66,22 +65,26 @@ impl Statement  {
     ///     .with_param("param2", 2)
     ///     .with_param("param3", 3.0);
     /// ```
-    pub fn with_param<V: Serialize + Copy>(mut self, key: &str, value: V) -> Self {
+    pub fn with_param<K, V>(mut self, key: K, value: V) -> Self
+        where K: Into<String>, V: Serialize + Copy
+    {
         self.add_param(key, value);
         self
     }
 
     /// Adds parameter to the `Statement`
-    pub fn add_param<V: Serialize + Copy>(&mut self, key: &str, value: V) {
-        self.parameters.insert(key.to_owned(), serde_json::value::to_value(&value));
+    pub fn add_param<K, V>(&mut self, key: K, value: V)
+        where K: Into<String>, V: Serialize + Copy
+    {
+        self.parameters.insert(key.into(), serde_json::value::to_value(&value));
     }
 
     /// Gets the value of the parameter
     ///
     /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
     /// if the parameter cannot be converted back from `serde_json::value::Value`
-    pub fn param<V: Deserialize>(&self, key: &str) -> Option<Result<V, serde_json::error::Error>> {
-        self.parameters.get(key.into()).map(|v| serde_json::value::from_value(v.clone()))
+    pub fn param<T: Deserialize>(&self, key: &str) -> Option<Result<T, serde_json::error::Error>> {
+        self.parameters.get(key).map(|v| serde_json::value::from_value(v.clone()))
     }
 
     /// Gets a reference to the underlying parameters `BTreeMap`
@@ -90,9 +93,9 @@ impl Statement  {
     }
 
     /// Sets the parameters `BTreeMap`, overriding current values
-    pub fn set_parameters<V: Serialize>(&mut self, params: &BTreeMap<String, V>) {
-        self.parameters = params.iter()
-            .map(|(k, v)| (k.to_owned(), serde_json::value::to_value(&v)))
+    pub fn set_parameters<T: Serialize>(&mut self, params: BTreeMap<String, T>) {
+        self.parameters = params.into_iter()
+            .map(|(k, v)| (k, serde_json::value::to_value(&v)))
             .collect();
     }
 
@@ -104,12 +107,17 @@ impl Statement  {
     }
 }
 
-
-impl<'a> From<&'a str> for Statement {
-    fn from(stmt: &str) -> Self {
+impl<T: Into<String>> From<T> for Statement {
+    fn from(stmt: T) -> Self {
         Statement::new(stmt)
     }
 }
+
+// impl<'a> From<&'a str> for Statement {
+//     fn from(stmt: &str) -> Self {
+//         Statement::new(stmt)
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
