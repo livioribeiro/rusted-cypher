@@ -1,6 +1,3 @@
-#[cfg(feature = "rustc-serialize")]
-extern crate rustc_serialize;
-
 extern crate rusted_cypher;
 
 use rusted_cypher::{GraphClient, Statement};

@@ -1,6 +1,7 @@
-#![cfg(feature = "rustc-serialize")]
+extern crate serde;
 
-extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
 
 #[macro_use]
 extern crate rusted_cypher;
@@ -10,7 +11,7 @@ use rusted_cypher::cypher::result::Row;
 
 const URI: &'static str = "http://neo4j:neo4j@127.0.0.1:7474/db/data";
 
-#[derive(Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct Language {
     name: String,
     level: String,

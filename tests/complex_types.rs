@@ -1,8 +1,8 @@
-#![cfg(all(feature = "serde_macros", not(feature = "rustc-serialize")))]
-#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
-
 extern crate serde;
+
+#[macro_use]
+extern crate serde_derive;
+
 extern crate rusted_cypher;
 
 use rusted_cypher::{GraphClient, Statement};

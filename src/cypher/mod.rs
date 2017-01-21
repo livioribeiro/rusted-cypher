@@ -277,27 +277,15 @@ mod tests {
 
     #[test]
     fn query_with_complex_param() {
-        #[cfg(not(feature = "rustc-serialize"))]
-        mod inner {
-            #[derive(Serialize, Deserialize)]
-            pub struct ComplexType {
-                pub name: String,
-                pub value: i32,
-            }
-        }
-
-        #[cfg(feature = "rustc-serialize")]
-        mod inner {
-            #[derive(RustcEncodable, RustcDecodable)]
-            pub struct ComplexType {
-                pub name: String,
-                pub value: i32,
-            }
+        #[derive(Serialize, Deserialize)]
+        pub struct ComplexType {
+            pub name: String,
+            pub value: i32,
         }
 
         let cypher = get_cypher();
 
-        let complex_param = inner::ComplexType {
+        let complex_param = ComplexType {
             name: "Complex".to_owned(),
             value: 42,
         };
@@ -312,7 +300,7 @@ mod tests {
         let rows: Vec<Row> = results.rows().take(1).collect();
         let row = rows.first().unwrap();
 
-        let complex_result: inner::ComplexType = row.get("n").unwrap();
+        let complex_result: ComplexType = row.get("n").unwrap();
         assert_eq!(complex_result.name, "Complex");
         assert_eq!(complex_result.value, 42);
 

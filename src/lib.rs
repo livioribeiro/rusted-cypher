@@ -5,17 +5,6 @@
 //!
 //! You can execute queries inside a transaction or simply execute queries that commit immediately.
 //!
-//! # Serialization: `serde` vs `rustc-serialize`
-//!
-//! By default, `rusted-cypher` supports types that implement [serde](https://github.com/serde-rs/serde)
-//! traits, `Serialize` and `Deserialize`, in query parameters and to retrieve result values.
-//! If you want to use `rustc-serialize` instead, just add the feature `rustc-serialize`:
-//!
-//! ```toml
-//! [dependencies]
-//! rusted_cypher = { version = "*", features = ["rustc-serialize"] }
-//! ```
-//!
 //! # Examples
 //!
 //! Code in examples are assumed to be wrapped in:
