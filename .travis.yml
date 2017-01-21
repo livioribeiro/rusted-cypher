@@ -1,5 +1,14 @@
 language: rust
 
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - |
+      while [[ $(neo4j-community-$NEO4J_VERSION/bin/neo4j status) == "Neo4j Server is not running" ]]; do
+        sleep 1
+        echo 'waiting for Neo4j server to be ready'
+      done
+
 rust:
   - stable
   - beta
@@ -31,11 +40,6 @@ before_install:
         sed -i.bak s/\#dbms.security.auth_enabled=false/dbms.security.auth_enabled=false/g neo4j-community-$NEO4J_VERSION/conf/neo4j.conf
       fi
   - neo4j-community-$NEO4J_VERSION/bin/neo4j start
-  - |
-      while [[ $(neo4j-community-$NEO4J_VERSION/bin/neo4j status) == "Neo4j Server is not running" ]]; do
-        sleep 1
-        echo 'waiting for Neo4j server to be ready'
-      done
 
 matrix:
   allow_failures:
