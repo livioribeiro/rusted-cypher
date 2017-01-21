@@ -1,10 +1,10 @@
 [package]
 name = "rusted_cypher"
-version = "1.0.0"
+version = "1.0.0-rc"
 authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
-documentation = "http://livioribeiro.github.io/rusted_cypher/rusted_cypher/"
+documentation = "https://docs.rs/rusted_cypher/"
 readme = "README.md"
 keywords = ["neo4j", "database", "rest", "cypher", "graph"]
 license = "MIT/Apache-2.0"
