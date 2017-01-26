@@ -10,7 +10,7 @@ const URI: &'static str = "http://neo4j:neo4j@127.0.0.1:7474/db/data";
 fn without_params() {
     let graph = GraphClient::connect(URI).unwrap();
 
-    let stmt = cypher_stmt!("MATCH (n:INTG_TEST_MACROS_1) RETURN n");
+    let stmt = cypher_stmt!("MATCH (n:INTG_TEST_MACROS_1) RETURN n").unwrap();
 
     let result = graph.cypher().exec(stmt);
     assert!(result.is_ok());
@@ -26,7 +26,7 @@ fn save_retrive_values() {
             "level" => "low",
             "safe" => true
         }
-    );
+    ).unwrap();
 
     let results = graph.cypher().exec(stmt).unwrap();
 

@@ -11,9 +11,9 @@ fn save_retrive_values() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_1 {name: {name}, level: {level}, safe: {safe}}) RETURN n.name, n.level, n.safe")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     let results = graph.cypher().exec(statement).unwrap();
 
@@ -37,9 +37,9 @@ fn transaction_create_on_begin_commit() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_2 {name: {name}, level: {level}, safe: {safe}})")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     graph.cypher().transaction()
         .with_statement(statement)
@@ -71,9 +71,9 @@ fn transaction_create_after_begin_commit() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_3 {name: {name}, level: {level}, safe: {safe}})")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     transaction.exec(statement).unwrap();
     transaction.commit().unwrap();
@@ -102,9 +102,9 @@ fn transaction_create_on_commit() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_4 {name: {name}, level: {level}, safe: {safe}})")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
     transaction.add_statement(statement);
@@ -134,9 +134,9 @@ fn transaction_create_on_begin_rollback() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_5 {name: {name}, level: {level}, safe: {safe}})")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     let (mut transaction, _) = graph.cypher().transaction()
         .with_statement(statement)
@@ -173,9 +173,9 @@ fn transaction_create_after_begin_rollback() {
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_6 {name: {name}, level: {level}, safe: {safe}})")
-        .with_param("name", "Rust")
-        .with_param("level", "low")
-        .with_param("safe", true);
+        .with_param("name", "Rust").unwrap()
+        .with_param("level", "low").unwrap()
+        .with_param("safe", true).unwrap();
 
     transaction.exec(statement).unwrap();
 

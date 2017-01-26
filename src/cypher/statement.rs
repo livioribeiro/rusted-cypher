@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
+use serde_json::error::Error as JsonError;
 
 /// Helper macro to simplify the creation of complex statements
 ///
@@ -24,11 +25,28 @@ use serde_json::{self, Value};
 /// ```
 #[macro_export]
 macro_rules! cypher_stmt {
-    ( $s:expr ) => { $crate::Statement::new($s) };
-    ( $s:expr, { $( $k:expr => $v:expr ),+ } ) => {
-        $crate::Statement::new($s)
-            $(.with_param($k, $v))*
-    }
+    ( $s:expr ) => {{
+        Ok($crate::Statement::new($s)) as Result<$crate::Statement, $crate::serde_json::error::Error>
+    }};
+    ( $s:expr, { $( $k:expr => $v:expr ),+ } ) => {{
+        let mut stmt = $crate::Statement::new($s);
+        let mut error: Option<$crate::serde_json::error::Error> = None;
+
+        $(
+            if error.is_none() {
+                match stmt.add_param($k, $v) {
+                    Err(e) => error = Some(e),
+                    _ => {}
+                }
+            }
+        )*
+
+        if let Some(error) = error {
+            Err($crate::error::GraphError::Serde(error))
+        } else {
+            Ok(stmt)
+        }
+    }}
 }
 
 /// Represents a statement to be sent to the server
@@ -51,6 +69,17 @@ impl Statement  {
         &self.statement
     }
 
+    /// Adds parameter to the `Statement`
+    ///
+    /// The parameter value is serialized into a `Value`. Since the serialization can fail, the
+    /// method returns a `Result`
+    pub fn add_param<K, V>(&mut self, key: K, value: V) -> Result<(), JsonError>
+        where K: Into<String>, V: Serialize + Copy
+    {
+        self.parameters.insert(key.into(), serde_json::value::to_value(&value)?);
+        Ok(())
+    }
+
     /// Adds parameter in builder style
     ///
     /// This method consumes `self` and returns it with the parameter added, so the binding does
@@ -61,22 +90,15 @@ impl Statement  {
     /// ```
     /// # use rusted_cypher::Statement;
     /// let statement = Statement::new("MATCH n RETURN n")
-    ///     .with_param("param1", "value1")
-    ///     .with_param("param2", 2)
-    ///     .with_param("param3", 3.0);
+    ///     .with_param("param1", "value1").unwrap()
+    ///     .with_param("param2", 2).unwrap()
+    ///     .with_param("param3", 3.0).unwrap();
     /// ```
-    pub fn with_param<K, V>(mut self, key: K, value: V) -> Self
+    pub fn with_param<K, V>(mut self, key: K, value: V) -> Result<Self, JsonError>
         where K: Into<String>, V: Serialize + Copy
     {
-        self.add_param(key, value);
-        self
-    }
-
-    /// Adds parameter to the `Statement`
-    pub fn add_param<K, V>(&mut self, key: K, value: V)
-        where K: Into<String>, V: Serialize + Copy
-    {
-        self.parameters.insert(key.into(), serde_json::value::to_value(&value));
+        self.add_param(key, value)?;
+        Ok(self)
     }
 
     /// Gets the value of the parameter
@@ -93,10 +115,17 @@ impl Statement  {
     }
 
     /// Sets the parameters `BTreeMap`, overriding current values
-    pub fn set_parameters<T: Serialize>(&mut self, params: BTreeMap<String, T>) {
-        self.parameters = params.into_iter()
-            .map(|(k, v)| (k, serde_json::value::to_value(&v)))
-            .collect();
+    pub fn set_parameters<T: Serialize>(&mut self, params: &BTreeMap<String, T>)
+        -> Result<(), JsonError>
+    {
+        let mut parameters = BTreeMap::new();
+        for (k, v) in params {
+            parameters.insert(k.to_owned(), serde_json::value::to_value(v)?);
+        }
+
+        self.parameters = parameters;
+
+        Ok(())
     }
 
     /// Removes parameter from the statment
@@ -132,10 +161,10 @@ mod tests {
     #[test]
     fn with_param() {
         let statement = Statement::new("MATCH n RETURN n")
-            .with_param("param1", "value1")
-            .with_param("param2", 2)
-            .with_param("param3", 3.0)
-            .with_param("param4", [0; 4]);
+            .with_param("param1", "value1").unwrap()
+            .with_param("param2", 2).unwrap()
+            .with_param("param3", 3.0).unwrap()
+            .with_param("param4", [0; 4]).unwrap();
 
         assert_eq!(statement.parameters().len(), 4);
     }
@@ -143,10 +172,10 @@ mod tests {
     #[test]
     fn add_param() {
         let mut statement = Statement::new("MATCH n RETURN n");
-        statement.add_param("param1", "value1");
-        statement.add_param("param2", 2);
-        statement.add_param("param3", 3.0);
-        statement.add_param("param4", [0; 4]);
+        statement.add_param("param1", "value1").unwrap();
+        statement.add_param("param2", 2).unwrap();
+        statement.add_param("param3", 3.0).unwrap();
+        statement.add_param("param4", [0; 4]).unwrap();
 
         assert_eq!(statement.parameters().len(), 4);
     }
@@ -154,10 +183,10 @@ mod tests {
     #[test]
     fn remove_param() {
         let mut statement = Statement::new("MATCH n RETURN n")
-            .with_param("param1", "value1")
-            .with_param("param2", 2)
-            .with_param("param3", 3.0)
-            .with_param("param4", [0; 4]);
+            .with_param("param1", "value1").unwrap()
+            .with_param("param2", 2).unwrap()
+            .with_param("param3", 3.0).unwrap()
+            .with_param("param4", [0; 4]).unwrap();
 
         statement.remove_param("param1");
 
@@ -167,19 +196,19 @@ mod tests {
     #[test]
     #[allow(unused_variables)]
     fn macro_without_params() {
-        let stmt = cypher_stmt!("MATCH n RETURN n");
+        let stmt = cypher_stmt!("MATCH n RETURN n").unwrap();
     }
 
     #[test]
     fn macro_single_param() {
         let statement1 = cypher_stmt!("MATCH n RETURN n", {
             "name" => "test"
-        });
+        }).unwrap();
 
         let param = 1;
         let statement2 = cypher_stmt!("MATCH n RETURN n", {
             "value" => param
-        });
+        }).unwrap();
 
         assert_eq!("test", statement1.param::<String>("name").unwrap().unwrap());
         assert_eq!(param, statement2.param::<i32>("value").unwrap().unwrap());
@@ -192,7 +221,7 @@ mod tests {
             "param1" => "one",
             "param2" => 2,
             "param3" => param
-        });
+        }).unwrap();
 
         assert_eq!("one", statement.param::<String>("param1").unwrap().unwrap());
         assert_eq!(2, statement.param::<i32>("param2").unwrap().unwrap());

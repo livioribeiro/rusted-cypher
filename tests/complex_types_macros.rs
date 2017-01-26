@@ -22,7 +22,7 @@ struct Language {
 fn without_params() {
     let graph = GraphClient::connect(URI).unwrap();
 
-    let stmt = cypher_stmt!("MATCH (n:NTLY_INTG_TEST_MACROS_1) RETURN n");
+    let stmt = cypher_stmt!("MATCH (n:NTLY_INTG_TEST_MACROS_1) RETURN n").unwrap();
 
     let result = graph.cypher().exec(stmt);
     assert!(result.is_ok());
@@ -40,7 +40,7 @@ fn save_retrive_struct() {
 
     let stmt = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_MACROS_2 {lang}) RETURN n", {
         "lang" => &rust
-    });
+    }).unwrap();
 
     let results = graph.cypher().exec(stmt).unwrap();
     let rows: Vec<Row> = results.rows().take(1).collect();

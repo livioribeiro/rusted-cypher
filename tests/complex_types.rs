@@ -28,7 +28,7 @@ fn save_retrieve_struct() {
     let graph = GraphClient::connect(URI).unwrap();
 
     let statement = Statement::new("CREATE (n:NTLY_INTG_TEST_1 {lang}) RETURN n")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     let results = graph.cypher().exec(statement).unwrap();
     let rows: Vec<Row> = results.rows().take(1).collect();
@@ -53,7 +53,7 @@ fn transaction_create_on_begin_commit() {
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_2 {lang})")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     graph.cypher().transaction()
         .with_statement(statement)
@@ -87,7 +87,7 @@ fn transaction_create_after_begin_commit() {
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_3 {lang})")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     transaction.exec(statement).unwrap();
     transaction.commit().unwrap();
@@ -118,7 +118,7 @@ fn transaction_create_on_commit() {
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_4 {lang})")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
     transaction.add_statement(statement);
@@ -150,7 +150,7 @@ fn transaction_create_on_begin_rollback() {
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_5 {lang})")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     let (mut transaction, _) = graph.cypher().transaction()
         .with_statement(statement)
@@ -188,7 +188,7 @@ fn transaction_create_after_begin_rollback() {
 
     let statement = Statement::new(
         "CREATE (n:NTLY_INTG_TEST_6 {lang})")
-        .with_param("lang", &rust);
+        .with_param("lang", &rust).unwrap();
 
     let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
     transaction.exec(statement).unwrap();

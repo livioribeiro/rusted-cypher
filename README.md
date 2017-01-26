@@ -36,7 +36,8 @@ query.add_statement(
 
 let statement = Statement::new(
     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })")
-    .with_param("safeness", false);
+    .with_param("safeness", false)
+    .unwrap();
 
 query.add_statement(statement);
 
@@ -76,7 +77,8 @@ transaction.exec("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe
 
 // use `add_statement` (or `with_statement`) and `send` to executes multiple statements
 let stmt = Statement::new("MATCH (n:IN_TRANSACTION) WHERE (n.safe = {safeness}) RETURN n")
-    .with_param("safeness", true);
+    .with_param("safeness", true)
+    .unwrap();
 
 transaction.add_statement(stmt);
 let results = transaction.send().unwrap();
@@ -97,17 +99,17 @@ let statement = cypher_stmt!(
         "level" => "low",
         "safe" => true
     }
-);
+).unwrap();
 graph.cypher().exec(statement).unwrap();
 
 let statement = cypher_stmt!("MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n", {
     "name" => "Rust"
-});
+}).unwrap();
 
 let results = graph.cypher().exec(statement).unwrap();
 assert_eq!(results.data.len(), 1);
 
-let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n");
+let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n").unwrap();
 graph.cypher().exec(statement).unwrap();
 ```
 

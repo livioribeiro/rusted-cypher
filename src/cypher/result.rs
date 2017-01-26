@@ -133,7 +133,7 @@ mod tests {
             lastname: "Result".to_owned(),
         };
 
-        let node = json_value::to_value(&node);
+        let node = json_value::to_value(&node).unwrap();
         let row_data = vec![node];
 
         let row1 = RowResult { row: row_data.clone() };

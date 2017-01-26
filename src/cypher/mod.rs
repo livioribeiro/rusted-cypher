@@ -94,17 +94,16 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
 fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
     let result: Value = json_de::from_reader(res)?;
 
-    if let Some(errors) = result.find("errors") {
-        if result.find("results").is_none() {
+    if let Some(errors) = result.get("errors") {
+        if result.get("results").is_none() {
             return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
         }
     }
 
-    json_value::from_value::<T>(result)
-        .map_err(|e| {
-            error!("Unable to parse response: {}", &e);
-            From::from(e)
-        })
+    json_value::from_value::<T>(result).map_err(|e| {
+        error!("Unable to parse response: {}", &e);
+        From::from(e)
+    })
 }
 
 /// Represents the cypher endpoint of a neo4j server
@@ -257,7 +256,7 @@ mod tests {
     #[test]
     fn query_with_string_param() {
         let statement = Statement::new("MATCH (n:TEST_CYPHER {name: {name}}) RETURN n")
-            .with_param("name", "Neo");
+            .with_param("name", "Neo").unwrap();
 
         let result = get_cypher().exec(statement).unwrap();
 
@@ -268,7 +267,7 @@ mod tests {
     #[test]
     fn query_with_int_param() {
         let statement = Statement::new("MATCH (n:TEST_CYPHER {value: {value}}) RETURN n")
-            .with_param("value", 42);
+            .with_param("value", 42).unwrap();
 
         let result = get_cypher().exec(statement).unwrap();
 
@@ -292,7 +291,7 @@ mod tests {
         };
 
         let statement = Statement::new("CREATE (n:TEST_CYPHER_COMPLEX_PARAM {p})")
-            .with_param("p", &complex_param);
+            .with_param("p", &complex_param).unwrap();
 
         let result = cypher.exec(statement);
         assert!(result.is_ok());
@@ -312,8 +311,8 @@ mod tests {
     fn query_with_multiple_params() {
         let statement = Statement::new(
             "MATCH (n:TEST_CYPHER {name: {name}}) WHERE n.value = {value} RETURN n")
-            .with_param("name", "Neo")
-            .with_param("value", 42);
+            .with_param("name", "Neo").unwrap()
+            .with_param("value", 42).unwrap();
 
         let result = get_cypher().exec(statement).unwrap();
         assert_eq!(result.columns.len(), 1);

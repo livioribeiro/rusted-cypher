@@ -32,8 +32,8 @@ pub struct ServiceRoot {
 fn decode_service_root<R: Read>(reader: &mut R) -> Result<ServiceRoot, GraphError> {
     let result: Value = serde_json::de::from_reader(reader)?;
 
-    if let Some(errors) = result.find("errors") {
-        if result.find("results").is_none() {
+    if let Some(errors) = result.get("errors") {
+        if result.get("results").is_none() {
             return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
         }
     }

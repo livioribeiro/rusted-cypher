@@ -19,9 +19,9 @@ include = [
 
 [dependencies]
 hyper = "0.10"
-serde = "0.8"
-serde_json = "0.8"
-serde_derive = "0.8"
+serde = "0.9"
+serde_json = "0.9"
+serde_derive = "0.9"
 semver = "0.5"
 time = "0.1"
 quick-error = "1.1"
