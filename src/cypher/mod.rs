@@ -43,7 +43,7 @@ fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T,
     let result: Value = json_de::from_reader(res)?;
 
     if let Some(errors) = result.get("errors") {
-        if result.get("results").is_none() {
+        if errors.as_array().map(|a| a.len()).unwrap_or(0) > 0 {
             return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
         }
     }

@@ -92,7 +92,7 @@ fn decode_service_root<R: Read>(reader: &mut R) -> Result<ServiceRoot, GraphErro
     let result: Value = serde_json::de::from_reader(reader)?;
 
     if let Some(errors) = result.get("errors") {
-        if result.get("results").is_none() {
+        if errors.as_array().map(|a| a.len()).unwrap_or(0) > 0 {
             return Err(GraphError::Neo4j(json_value::from_value(errors.clone())?))
         }
     }
