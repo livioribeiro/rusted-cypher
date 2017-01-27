@@ -15,7 +15,7 @@ fn save_retrive_values() {
         .with_param("level", "low").unwrap()
         .with_param("safe", true).unwrap();
 
-    let results = graph.cypher().exec(statement).unwrap();
+    let results = graph.exec(statement).unwrap();
 
     let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
@@ -28,7 +28,7 @@ fn save_retrive_values() {
     assert_eq!("low", level);
     assert_eq!(true, safe);
 
-    graph.cypher().exec("MATCH (n:INTG_TEST_1) DELETE n").unwrap();
+    graph.exec("MATCH (n:INTG_TEST_1) DELETE n").unwrap();
 }
 
 #[test]
@@ -41,13 +41,12 @@ fn transaction_create_on_begin_commit() {
         .with_param("level", "low").unwrap()
         .with_param("safe", true).unwrap();
 
-    graph.cypher().transaction()
+    graph.transaction()
         .with_statement(statement)
         .begin().unwrap()
         .0.commit().unwrap();
 
-    let results = graph.cypher()
-        .exec("MATCH (n:INTG_TEST_2) RETURN n.name, n.level, n.safe")
+    let results = graph.exec("MATCH (n:INTG_TEST_2) RETURN n.name, n.level, n.safe")
         .unwrap();
 
     let rows: Vec<Row> = results.rows().take(1).collect();
@@ -61,13 +60,13 @@ fn transaction_create_on_begin_commit() {
     assert_eq!("low", level);
     assert_eq!(true, safe);
 
-    graph.cypher().exec("MATCH (n:INTG_TEST_2) DELETE n").unwrap();
+    graph.exec("MATCH (n:INTG_TEST_2) DELETE n").unwrap();
 }
 
 #[test]
 fn transaction_create_after_begin_commit() {
     let graph = GraphClient::connect(URI).unwrap();
-    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+    let (mut transaction, _) = graph.transaction().begin().unwrap();
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_3 {name: {name}, level: {level}, safe: {safe}})")
@@ -78,8 +77,7 @@ fn transaction_create_after_begin_commit() {
     transaction.exec(statement).unwrap();
     transaction.commit().unwrap();
 
-    let results = graph.cypher()
-        .exec("MATCH (n:INTG_TEST_3) RETURN n.name, n.level, n.safe")
+    let results = graph.exec("MATCH (n:INTG_TEST_3) RETURN n.name, n.level, n.safe")
         .unwrap();
 
     let rows: Vec<Row> = results.rows().take(1).collect();
@@ -93,7 +91,7 @@ fn transaction_create_after_begin_commit() {
     assert_eq!("low", level);
     assert_eq!(true, safe);
 
-    graph.cypher().exec("MATCH (n:INTG_TEST_3) DELETE n").unwrap();
+    graph.exec("MATCH (n:INTG_TEST_3) DELETE n").unwrap();
 }
 
 #[test]
@@ -106,12 +104,11 @@ fn transaction_create_on_commit() {
         .with_param("level", "low").unwrap()
         .with_param("safe", true).unwrap();
 
-    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+    let (mut transaction, _) = graph.transaction().begin().unwrap();
     transaction.add_statement(statement);
     transaction.commit().unwrap();
 
-    let results = graph.cypher()
-        .exec("MATCH (n:INTG_TEST_4) RETURN n.name, n.level, n.safe")
+    let results = graph.exec("MATCH (n:INTG_TEST_4) RETURN n.name, n.level, n.safe")
         .unwrap();
 
     let rows: Vec<Row> = results.rows().take(1).collect();
@@ -125,7 +122,7 @@ fn transaction_create_on_commit() {
     assert_eq!("low", level);
     assert_eq!(true, safe);
 
-    graph.cypher().exec("MATCH (n:INTG_TEST_4) DELETE n").unwrap();
+    graph.exec("MATCH (n:INTG_TEST_4) DELETE n").unwrap();
 }
 
 #[test]
@@ -138,7 +135,7 @@ fn transaction_create_on_begin_rollback() {
         .with_param("level", "low").unwrap()
         .with_param("safe", true).unwrap();
 
-    let (mut transaction, _) = graph.cypher().transaction()
+    let (mut transaction, _) = graph.transaction()
         .with_statement(statement)
         .begin().unwrap();
 
@@ -159,8 +156,7 @@ fn transaction_create_on_begin_rollback() {
 
     transaction.rollback().unwrap();
 
-    let results = graph.cypher()
-        .exec("MATCH (n:INTG_TEST_5) RETURN n")
+    let results = graph.exec("MATCH (n:INTG_TEST_5) RETURN n")
         .unwrap();
 
     assert_eq!(0, results.rows().count());
@@ -169,7 +165,7 @@ fn transaction_create_on_begin_rollback() {
 #[test]
 fn transaction_create_after_begin_rollback() {
     let graph = GraphClient::connect(URI).unwrap();
-    let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+    let (mut transaction, _) = graph.transaction().begin().unwrap();
 
     let statement = Statement::new(
         "CREATE (n:INTG_TEST_6 {name: {name}, level: {level}, safe: {safe}})")
@@ -196,8 +192,7 @@ fn transaction_create_after_begin_rollback() {
 
     transaction.rollback().unwrap();
 
-    let results = graph.cypher()
-        .exec("MATCH (n:INTG_TEST_6) RETURN n")
+    let results = graph.exec("MATCH (n:INTG_TEST_6) RETURN n")
         .unwrap();
 
     assert_eq!(0, results.rows().count());

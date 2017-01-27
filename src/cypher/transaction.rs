@@ -12,7 +12,7 @@
 //! # #[allow(unused_variables)]
 //! # fn doctest() -> Result<(), GraphError> {
 //! # let graph = GraphClient::connect(URL)?;
-//! let mut transaction = graph.cypher().transaction();
+//! let mut transaction = graph.transaction();
 //! transaction.add_statement("MATCH (n:TRANSACTION) RETURN n");
 //!
 //! let (transaction, results) = transaction.begin()?;
@@ -29,9 +29,7 @@
 //! # #[allow(unused_variables)]
 //! # fn doctest() -> Result<(), GraphError> {
 //! # let graph = GraphClient::connect(URL)?;
-//! let (transaction, _) = graph.cypher()
-//!     .transaction()
-//!     .begin()?;
+//! let (transaction, _) = graph.transaction().begin()?;
 //! # transaction.rollback()?;
 //! # Ok(())
 //! # }
@@ -44,7 +42,7 @@
 //! # fn main() { doctest().unwrap(); }
 //! # fn doctest() -> Result<(), GraphError> {
 //! # let graph = GraphClient::connect(URL)?;
-//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! # let (mut transaction, _) = graph.transaction().begin()?;
 //! // Send a single query
 //! let result = transaction.exec("MATCH (n:TRANSACTION) RETURN n")?;
 //!
@@ -66,18 +64,18 @@
 //! # fn main() { doctest().unwrap(); }
 //! # fn doctest() -> Result<(), GraphError> {
 //! # let graph = GraphClient::connect(URL)?;
-//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! # let (mut transaction, _) = graph.transaction().begin()?;
 //! transaction.exec("CREATE (n:TRANSACTION)")?;
 //! transaction.commit()?;
 //!
 //! // Send more statements when commiting
-//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! # let (mut transaction, _) = graph.transaction().begin()?;
 //! let results = transaction.with_statement(
 //!     "MATCH (n:TRANSACTION) RETURN n")
 //!     .send()?;
 //! # assert_eq!(results[0].data.len(), 1);
 //! # transaction.rollback()?;
-//! # graph.cypher().exec("MATCH (n:TRANSACTION) DELETE n")?;
+//! # graph.exec("MATCH (n:TRANSACTION) DELETE n")?;
 //! # Ok(())
 //! # }
 //! ```
@@ -89,10 +87,10 @@
 //! # fn main() { doctest().unwrap(); }
 //! # fn doctest() -> Result<(), GraphError> {
 //! # let graph = GraphClient::connect(URL)?;
-//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! # let (mut transaction, _) = graph.transaction().begin()?;
 //! transaction.exec("CREATE (n:TRANSACTION)")?;
 //! transaction.rollback()?;
-//! # let result = graph.cypher().exec("MATCH (n:TRANSACTION) RETURN n")?;
+//! # let result = graph.exec("MATCH (n:TRANSACTION) RETURN n")?;
 //! # assert_eq!(result.data.len(), 0);
 //! # Ok(())
 //! # }

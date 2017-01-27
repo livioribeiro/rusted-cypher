@@ -24,7 +24,7 @@ fn without_params() {
 
     let stmt = cypher_stmt!("MATCH (n:NTLY_INTG_TEST_MACROS_1) RETURN n").unwrap();
 
-    let result = graph.cypher().exec(stmt);
+    let result = graph.exec(stmt);
     assert!(result.is_ok());
 }
 
@@ -42,7 +42,7 @@ fn save_retrive_struct() {
         "lang" => &rust
     }).unwrap();
 
-    let results = graph.cypher().exec(stmt).unwrap();
+    let results = graph.exec(stmt).unwrap();
     let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
@@ -50,5 +50,5 @@ fn save_retrive_struct() {
 
     assert_eq!(rust, lang);
 
-    graph.cypher().exec("MATCH (n:NTLY_INTG_TEST_MACROS_2) DELETE n").unwrap();
+    graph.exec("MATCH (n:NTLY_INTG_TEST_MACROS_2) DELETE n").unwrap();
 }

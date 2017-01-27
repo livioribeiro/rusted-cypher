@@ -18,7 +18,7 @@ let graph = GraphClient::connect(
 ### Performing Queries
 
 ```rust
-let mut query = graph.cypher().query();
+let mut query = graph.query();
 
 // Statement implements From<&str>
 query.add_statement(
@@ -32,10 +32,10 @@ query.add_statement(statement);
 
 query.send()?;
 
-graph.cypher().exec(
+graph.exec(
     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })")?;
 
-let result = graph.cypher().exec(
+let result = graph.exec(
     "MATCH (n:LANG) RETURN n.name, n.level, n.safe")?;
 
 assert_eq!(result.data.len(), 3);
@@ -47,13 +47,13 @@ for row in result.rows() {
     println!("name: {}, level: {}, safe: {}", name, level, safeness);
 }
 
-graph.cypher().exec("MATCH (n:LANG) DELETE n")?;
+graph.exec("MATCH (n:LANG) DELETE n")?;
 ```
 
 ### With Transactions
 
 ```rust
-let transaction = graph.cypher()
+let transaction = graph
     .transaction()
     .with_statement(
         "CREATE (n:IN_TRANSACTION { name: 'Rust', level: 'low', safe: true })");
@@ -89,7 +89,7 @@ let statement = cypher_stmt!(
         "safe" => true
     }
 )?;
-graph.cypher().exec(statement)?;
+graph.exec(statement)?;
 
 let statement = cypher_stmt!(
     "MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n", {
@@ -97,11 +97,11 @@ let statement = cypher_stmt!(
     }
 )?;
 
-let results = graph.cypher().exec(statement)?;
+let results = graph.exec(statement)?;
 assert_eq!(results.data.len(), 1);
 
 let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n")?;
-graph.cypher().exec(statement)?;
+graph.exec(statement)?;
 ```
 
 ## License

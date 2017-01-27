@@ -1,4 +1,61 @@
-//! Main interface for interacting with a neo4j server
+//! Main interface for executing queries against a neo4j database
+//!
+//! # Examples
+//!
+//! ## Execute a single query
+//! ```
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! graph.exec("CREATE (n:CYPHER_QUERY {value: 1})")?;
+//!
+//! let result = graph.exec("MATCH (n:CYPHER_QUERY) RETURN n.value AS value")?;
+//! # assert_eq!(result.data.len(), 1);
+//!
+//! // Iterate over the results
+//! for row in result.rows() {
+//!     let value = row.get::<i32>("value")?; // or: let value: i32 = row.get("value")?;
+//!     assert_eq!(value, 1);
+//! }
+//! # graph.exec("MATCH (n:CYPHER_QUERY) delete n")?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Execute multiple queries
+//! ```
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! let mut query = graph.query()
+//!     .with_statement("MATCH (n:SOME_CYPHER_QUERY) RETURN n.value as value")
+//!     .with_statement("MATCH (n:OTHER_CYPHER_QUERY) RETURN n");
+//!
+//! let results = query.send()?;
+//!
+//! for row in results[0].rows() {
+//!     let value: i32 = row.get("value")?;
+//!     assert_eq!(value, 1);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Start a transaction
+//! ```
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! let (transaction, results) = graph.transaction()
+//!     .with_statement("MATCH (n:TRANSACTION_CYPHER_QUERY) RETURN n")
+//!     .begin()?;
+//! # assert_eq!(results.len(), 1);
+//! # Ok(())
+//! }
+//! ```
 
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -8,7 +65,9 @@ use serde_json::{self, Value};
 use serde_json::value as json_value;
 use semver::Version;
 
-use cypher::Cypher;
+use cypher::{Cypher, CypherQuery, CypherResult};
+use cypher::transaction::{Transaction, Created as TransactionCreated};
+use cypher::statement::Statement;
 use error::GraphError;
 
 #[derive(Deserialize)]
@@ -96,11 +155,30 @@ impl GraphClient {
         })
     }
 
+    /// Creates a new `CypherQuery`
+    pub fn query(&self) -> CypherQuery {
+        self.cypher.query()
+    }
+
+    /// Executes the given `Statement`
+    ///
+    /// Parameter can be anything that implements `Into<Statement>`, `Into<String>` or `Statement`
+    /// itself
+    pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
+        self.cypher.exec(statement)
+    }
+
+    /// Creates a new `Transaction`
+    pub fn transaction(&self) -> Transaction<TransactionCreated> {
+        self.cypher.transaction()
+    }
+
     pub fn neo4j_version(&self) -> &Version {
         &self.neo4j_version
     }
 
     /// Returns a reference to the `Cypher` instance of the `GraphClient`
+    #[deprecated(since = "1.0.0", note = "Use methods on `GraphClient` instead")]
     pub fn cypher(&self) -> &Cypher {
         &self.cypher
     }
@@ -124,7 +202,7 @@ mod tests {
     fn query() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let mut query = graph.cypher().query();
+        let mut query = graph.query();
         query.add_statement("MATCH (n) RETURN n");
 
         let result = query.send().unwrap();
@@ -137,7 +215,7 @@ mod tests {
     fn transaction() {
         let graph = GraphClient::connect(URL).unwrap();
 
-        let (transaction, result) = graph.cypher().transaction()
+        let (transaction, result) = graph.transaction()
             .with_statement("MATCH (n) RETURN n")
             .begin()
             .unwrap();
