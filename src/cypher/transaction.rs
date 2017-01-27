@@ -6,76 +6,96 @@
 //!
 //! ## Starting a transaction
 //! ```
-//! # #![allow(unused_variables)]
-//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::{GraphClient, GraphError};
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! let graph = GraphClient::connect(URL).unwrap();
-//!
+//! # fn main() { doctest().unwrap(); }
+//! # #[allow(unused_variables)]
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect(URL)?;
 //! let mut transaction = graph.cypher().transaction();
 //! transaction.add_statement("MATCH (n:TRANSACTION) RETURN n");
 //!
-//! let (transaction, results) = transaction.begin().unwrap();
-//! # transaction.rollback().unwrap();
+//! let (transaction, results) = transaction.begin()?;
+//! # transaction.rollback()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Statement is optional when beggining a transaction
 //! ```
-//! # #![allow(unused_variables)]
-//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::{GraphClient, GraphError};
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
-//! let (transaction, _) = graph.cypher().transaction()
-//!     .begin().unwrap();
-//! # transaction.rollback().unwrap();
+//! # fn main() { doctest().unwrap(); }
+//! # #[allow(unused_variables)]
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect(URL)?;
+//! let (transaction, _) = graph.cypher()
+//!     .transaction()
+//!     .begin()?;
+//! # transaction.rollback()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Send queries in a started transaction
 //! ```
-//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::{GraphClient, GraphError};
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
-//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect(URL)?;
+//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
 //! // Send a single query
-//! let result = transaction.exec("MATCH (n:TRANSACTION) RETURN n").unwrap();
+//! let result = transaction.exec("MATCH (n:TRANSACTION) RETURN n")?;
 //!
 //! // Send multiple queries
 //! let results = transaction
 //!     .with_statement("MATCH (n:TRANSACTION) RETURN n")
 //!     .with_statement("MATCH (n:OTHER_TRANSACTION) RETURN n")
-//!     .send().unwrap();
+//!     .send()?;
 //! # assert_eq!(results.len(), 2);
-//! # transaction.rollback().unwrap();
+//! # transaction.rollback()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Commit a transaction
 //! ```
-//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::{GraphClient, GraphError};
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
-//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
-//! transaction.exec("CREATE (n:TRANSACTION)").unwrap();
-//! transaction.commit().unwrap();
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect(URL)?;
+//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! transaction.exec("CREATE (n:TRANSACTION)")?;
+//! transaction.commit()?;
 //!
 //! // Send more statements when commiting
-//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
-//! let results = transaction
-//!     .with_statement("MATCH (n:TRANSACTION) RETURN n")
-//!     .send().unwrap();
+//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! let results = transaction.with_statement(
+//!     "MATCH (n:TRANSACTION) RETURN n")
+//!     .send()?;
 //! # assert_eq!(results[0].data.len(), 1);
-//! # transaction.rollback().unwrap();
-//! # graph.cypher().exec("MATCH (n:TRANSACTION) DELETE n").unwrap();
+//! # transaction.rollback()?;
+//! # graph.cypher().exec("MATCH (n:TRANSACTION) DELETE n")?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Rollback a transaction
 //! ```
-//! # use rusted_cypher::GraphClient;
+//! # use rusted_cypher::{GraphClient, GraphError};
 //! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
-//! # let (mut transaction, _) = graph.cypher().transaction().begin().unwrap();
-//! transaction.exec("CREATE (n:TRANSACTION)").unwrap();
-//! transaction.rollback().unwrap();
-//! # let result = graph.cypher().exec("MATCH (n:TRANSACTION) RETURN n").unwrap();
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect(URL)?;
+//! # let (mut transaction, _) = graph.cypher().transaction().begin()?;
+//! transaction.exec("CREATE (n:TRANSACTION)")?;
+//! transaction.rollback()?;
+//! # let result = graph.cypher().exec("MATCH (n:TRANSACTION) RETURN n")?;
 //! # assert_eq!(result.data.len(), 0);
+//! # Ok(())
+//! # }
 //! ```
 
 use std::any::Any;

@@ -12,15 +12,18 @@ use serde_json::error::Error as JsonError;
 ///
 /// ```
 /// # #[macro_use] extern crate rusted_cypher;
-/// # fn main() {
+/// # use rusted_cypher::GraphError;
+/// # fn main() { doctest().unwrap(); }
+/// # fn doctest() -> Result<(), GraphError> {
 /// // Without parameters
-/// let statement = cypher_stmt!("MATCH n RETURN n");
+/// let statement = cypher_stmt!("MATCH n RETURN n")?;
 /// // With parameters
 /// let statement = cypher_stmt!("MATCH n RETURN n", {
 ///     "param1" => "value1",
 ///     "param2" => 2,
 ///     "param3" => 3.0
-/// });
+/// })?;
+/// # Ok(())
 /// # }
 /// ```
 #[macro_export]
@@ -88,11 +91,15 @@ impl Statement  {
     /// # Examples
     ///
     /// ```
-    /// # use rusted_cypher::Statement;
+    /// # use rusted_cypher::{Statement, GraphError};
+    /// # fn main() { doctest().unwrap(); }
+    /// # fn doctest() -> Result<(), GraphError> {
     /// let statement = Statement::new("MATCH n RETURN n")
-    ///     .with_param("param1", "value1").unwrap()
-    ///     .with_param("param2", 2).unwrap()
-    ///     .with_param("param3", 3.0).unwrap();
+    ///     .with_param("param1", "value1")?
+    ///     .with_param("param2", 2)?
+    ///     .with_param("param3", 3.0)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_param<K, V>(mut self, key: K, value: V) -> Result<Self, JsonError>
         where K: Into<String>, V: Serialize + Copy

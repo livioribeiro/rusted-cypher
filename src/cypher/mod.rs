@@ -7,49 +7,59 @@
 //!
 //! ## Execute a single query
 //! ```
-//! # use rusted_cypher::GraphClient;
-//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! let graph = GraphClient::connect(URL).unwrap();
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! graph.cypher()
+//!     .exec("CREATE (n:CYPHER_QUERY {value: 1})")?;
 //!
-//! graph.cypher().exec("CREATE (n:CYPHER_QUERY {value: 1})").unwrap();
-//! let result = graph.cypher().exec("MATCH (n:CYPHER_QUERY) RETURN n.value AS value").unwrap();
+//! let result = graph.cypher()
+//!     .exec("MATCH (n:CYPHER_QUERY) RETURN n.value AS value")?;
 //! # assert_eq!(result.data.len(), 1);
 //!
 //! // Iterate over the results
 //! for row in result.rows() {
-//!     let value = row.get::<i32>("value").unwrap(); // or: let value: i32 = row.get("value");
+//!     let value = row.get::<i32>("value")?; // or: let value: i32 = row.get("value")?;
 //!     assert_eq!(value, 1);
 //! }
-//! # graph.cypher().exec("MATCH (n:CYPHER_QUERY) delete n");
+//! # graph.cypher().exec("MATCH (n:CYPHER_QUERY) delete n")?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Execute multiple queries
 //! ```
-//! # use rusted_cypher::GraphClient;
-//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
 //! let mut query = graph.cypher().query()
 //!     .with_statement("MATCH (n:SOME_CYPHER_QUERY) RETURN n.value as value")
 //!     .with_statement("MATCH (n:OTHER_CYPHER_QUERY) RETURN n");
 //!
-//! let results = query.send().unwrap();
+//! let results = query.send()?;
 //!
 //! for row in results[0].rows() {
-//!     let value: i32 = row.get("value").unwrap();
+//!     let value: i32 = row.get("value")?;
 //!     assert_eq!(value, 1);
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Start a transaction
 //! ```
-//! # use rusted_cypher::GraphClient;
-//! # const URL: &'static str = "http://neo4j:neo4j@localhost:7474/db/data";
-//! # let graph = GraphClient::connect(URL).unwrap();
+//! # use rusted_cypher::{GraphClient, GraphError};
+//! # fn main() { doctest().unwrap(); }
+//! # fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
 //! let (transaction, results) = graph.cypher().transaction()
 //!     .with_statement("MATCH (n:TRANSACTION_CYPHER_QUERY) RETURN n")
-//!     .begin().unwrap();
-//!
+//!     .begin()?;
 //! # assert_eq!(results.len(), 1);
+//! # Ok(())
+//! }
 //! ```
 
 pub mod transaction;
