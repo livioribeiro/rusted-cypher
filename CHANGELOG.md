@@ -1,11 +1,15 @@
 # 1.0.0
 
-- Updated dependencies
+- Updated `hyper` to version 0.10
+- Updated `serde` to version 0.9
 - Added `serde_derive` for serialization
 - Refactored code to use `?` instead of `try!`
 - Droped support for `rustc-serialize`
 - Removed deprecated methods in `Statement`
-- Small optimizations
+- Added query methods to `GraphClient`
+- Deprecated `GraphClient::cypher()`
+- BC: methods `Statement::add_param` and `Statement::with_param` return a
+    `Result<_, GraphError>` due to `serde_json::to_value` change.
 
 # 0.9.1
 
