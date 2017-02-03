@@ -6,6 +6,7 @@ description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
 documentation = "https://docs.rs/rusted_cypher/"
 readme = "README.md"
+categories = ["database"]
 keywords = ["neo4j", "database", "rest", "cypher", "graph"]
 license = "MIT/Apache-2.0"
 include = [
