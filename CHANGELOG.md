@@ -1,5 +1,6 @@
 # 1.0.0
 
+- Requires rust 1.15
 - Updated `hyper` to version 0.10
 - Updated `serde` to version 0.9
 - Added `serde_derive` for serialization
