@@ -71,7 +71,6 @@ use cypher::statement::Statement;
 use error::GraphError;
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 pub struct ServiceRoot {
     pub extensions: BTreeMap<String, Value>,
     pub node: String,

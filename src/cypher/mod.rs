@@ -77,11 +77,6 @@ impl Cypher {
         }
     }
 
-    #[allow(dead_code)]
-    fn endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
     fn endpoint_commit(&self) -> String {
         format!("{}/{}", &self.endpoint, "commit")
     }
