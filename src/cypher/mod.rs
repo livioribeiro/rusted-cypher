@@ -34,7 +34,7 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
         .headers(headers.clone())
         .body(&json);
 
-    debug!("Seding query:\n{}", json_ser::to_string_pretty(&json).unwrap_or(String::new()));
+    debug!("Sending query:\n{}", json_ser::to_string_pretty(&json).unwrap_or(String::new()));
 
     req.send().map_err(From::from)
 }
