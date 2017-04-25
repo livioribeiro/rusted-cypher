@@ -1,6 +1,6 @@
 [package]
 name = "rusted_cypher"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Livio Ribeiro <livioribeiro@outlook.com>"]
 description = "Send cypher queries to a neo4j database"
 repository = "https://github.com/livioribeiro/rusted-cypher"
@@ -20,9 +20,9 @@ include = [
 
 [dependencies]
 hyper = "0.10"
-serde = "0.9"
-serde_json = "0.9"
-serde_derive = "0.9"
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
 semver = "0.5"
 time = "0.1"
 quick-error = "1.1"

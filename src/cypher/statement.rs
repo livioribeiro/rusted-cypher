@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
 use serde_json::error::Error as JsonError;
 
@@ -112,7 +113,7 @@ impl Statement  {
     ///
     /// Returns `None` if there is no parameter with the given name or `Some(serde_json::error::Error)``
     /// if the parameter cannot be converted back from `serde_json::value::Value`
-    pub fn param<T: Deserialize>(&self, key: &str) -> Option<Result<T, serde_json::error::Error>> {
+    pub fn param<T: DeserializeOwned>(&self, key: &str) -> Option<Result<T, serde_json::error::Error>> {
         self.parameters.get(key).map(|v| serde_json::value::from_value(v.clone()))
     }
 

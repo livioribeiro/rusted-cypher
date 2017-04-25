@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use hyper::Url;
 use hyper::client::{Client, Response};
 use hyper::header::Headers;
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
 use serde_json::de as json_de;
 use serde_json::ser as json_ser;
@@ -39,7 +39,7 @@ fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Ve
     req.send().map_err(From::from)
 }
 
-fn parse_response<T: Deserialize + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
+fn parse_response<T: DeserializeOwned + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
     let result: Value = json_de::from_reader(res)?;
 
     if let Some(errors) = result.get("errors") {

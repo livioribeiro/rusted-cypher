@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json;
 use serde_json::value::Value;
 
@@ -82,7 +82,7 @@ impl<'a> Row<'a> {
     ///
     /// If the column does not exist in the row, an `Err` is returned with the message
     /// `"No such column: {column_name}"`.
-    pub fn get<T: Deserialize>(&self, column: &str) -> Result<T, GraphError> {
+    pub fn get<T: DeserializeOwned>(&self, column: &str) -> Result<T, GraphError> {
         match self.columns.iter().position(|c| c == column) {
             Some(index) => self.get_n(index),
             None => Err(GraphError::Statement(format!("No such column: {}", column))),
@@ -95,13 +95,13 @@ impl<'a> Row<'a> {
     ///
     /// If the column number is not within the columns length, and `Err` is returned with the
     /// message `"No such column at index {column_number}"`.
-    pub fn get_n<T: Deserialize>(&self, column: usize) -> Result<T, GraphError> {
+    pub fn get_n<T: DeserializeOwned>(&self, column: usize) -> Result<T, GraphError> {
         let column_data = match self.data.get(column) {
             Some(c) => c.clone(),
             None => return Err(GraphError::Statement(format!("No column at index {}", column))),
         };
 
-        serde_json::value::from_value::<T>(column_data).map_err(From::from)
+        serde_json::from_value::<T>(column_data).map_err(From::from)
     }
 }
 
