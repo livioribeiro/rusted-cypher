@@ -10,17 +10,17 @@
 //! ```
 //! use rusted_cypher::GraphClient;
 //! let graph = GraphClient::connect(
-//!     "http://neo4j:neo4j@localhost:7474/db/data");
-//! # graph.unwrap();
+//!     "http://neo4j:neo4j@localhost:7474/db/data", None);
 //! ```
 //!
 //! ## Performing Queries
 //!
 //! ```
 //! # use rusted_cypher::{GraphClient, Statement, GraphError};
-//! # fn main() { doctest().unwrap(); }
-//! # fn doctest() -> Result<(), GraphError> {
-//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! # #[tokio::main]
+//! # async fn main() { doctest().await.unwrap(); }
+//! # async fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data", None).await?;
 //! let mut query = graph.query();
 //!
 //! // Statement implements From<&str>
@@ -28,18 +28,18 @@
 //!     "CREATE (n:LANG { name: 'Rust', level: 'low', safe: true })");
 //!
 //! let statement = Statement::new(
-//!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: {safeness} })")
+//!     "CREATE (n:LANG { name: 'C++', level: 'low', safe: $safeness })")
 //!     .with_param("safeness", false)?;
 //!
 //! query.add_statement(statement);
 //!
-//! query.send()?;
+//! query.send().await?;
 //!
 //! graph.exec(
-//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })")?;
+//!     "CREATE (n:LANG { name: 'Python', level: 'high', safe: true })").await?;
 //!
 //! let result = graph.exec(
-//!     "MATCH (n:LANG) RETURN n.name, n.level, n.safe")?;
+//!     "MATCH (n:LANG) RETURN n.name, n.level, n.safe").await?;
 //!
 //! assert_eq!(result.data.len(), 3);
 //!
@@ -50,7 +50,7 @@
 //!     println!("name: {}, level: {}, safe: {}", name, level, safeness);
 //! }
 //!
-//! graph.exec("MATCH (n:LANG) DELETE n")?;
+//! graph.exec("MATCH (n:LANG) DELETE n").await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -60,30 +60,31 @@
 //! ```
 //! # use std::collections::BTreeMap;
 //! # use rusted_cypher::{GraphClient, Statement, GraphError};
-//! # fn main() { doctest().unwrap(); }
-//! # fn doctest() -> Result<(), GraphError> {
-//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! # #[tokio::main]
+//! # async fn main() { doctest().await.unwrap(); }
+//! # async fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data", None).await?;
 //! let transaction = graph
 //!     .transaction()
 //!     .with_statement(
 //!         "CREATE (n:IN_TRANSACTION { name: 'Rust', level: 'low', safe: true })");
 //!
-//! let (mut transaction, results) = transaction.begin().unwrap();
+//! let (mut transaction, results) = transaction.begin().await.unwrap();
 //!
 //! // Use `exec` to execute a single statement
-//! transaction.exec("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })")?;
+//! transaction.exec("CREATE (n:IN_TRANSACTION { name: 'Python', level: 'high', safe: true })").await?;
 //!
 //! // use `add_statement` (or `with_statement`) and `send` to executes multiple statements
 //! let stmt = Statement::new(
-//!     "MATCH (n:IN_TRANSACTION) WHERE (n.safe = {safeness}) RETURN n")
+//!     "MATCH (n:IN_TRANSACTION) WHERE (n.safe = $safeness) RETURN n")
 //!     .with_param("safeness", true)?;
 //!
 //! transaction.add_statement(stmt);
-//! let results = transaction.send()?;
+//! let results = transaction.send().await?;
 //!
 //! assert_eq!(results[0].data.len(), 2);
 //!
-//! transaction.rollback()?;
+//! transaction.rollback().await?;
 //! # Ok(())
 //! }
 //! ```
@@ -95,29 +96,30 @@
 //! ```
 //! # #[macro_use] extern crate rusted_cypher;
 //! # use rusted_cypher::{GraphClient, Statement, GraphError};
-//! # fn main() { doctest().unwrap(); }
-//! # fn doctest() -> Result<(), GraphError> {
-//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data")?;
+//! # #[tokio::main]
+//! # async fn main() { doctest().await.unwrap(); }
+//! # async fn doctest() -> Result<(), GraphError> {
+//! # let graph = GraphClient::connect("http://neo4j:neo4j@localhost:7474/db/data", None).await?;
 //! let statement = cypher_stmt!(
-//!     "CREATE (n:WITH_MACRO { name: {name}, level: {level}, safe: {safe} })", {
+//!     "CREATE (n:WITH_MACRO { name: $name, level: $level, safe: $safe })", {
 //!         "name" => "Rust",
 //!         "level" => "low",
 //!         "safe" => true
 //!     }
 //! )?;
-//! graph.exec(statement)?;
+//! graph.exec(statement).await?;
 //!
 //! let statement = cypher_stmt!(
-//!     "MATCH (n:WITH_MACRO) WHERE n.name = {name} RETURN n", {
+//!     "MATCH (n:WITH_MACRO) WHERE n.name = $name RETURN n", {
 //!         "name" => "Rust"
 //!     }
 //! )?;
 //!
-//! let results = graph.exec(statement)?;
+//! let results = graph.exec(statement).await?;
 //! assert_eq!(results.data.len(), 1);
 //!
 //! let statement = cypher_stmt!("MATCH (n:WITH_MACRO) DELETE n")?;
-//! graph.exec(statement)?;
+//! graph.exec(statement).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -131,9 +133,11 @@ extern crate serde_derive;
 
 extern crate semver;
 extern crate time;
+extern crate base64;
 
-#[macro_use]
-extern crate quick_error;
+extern crate thiserror;
+
+extern crate tokio;
 
 #[macro_use]
 extern crate log;

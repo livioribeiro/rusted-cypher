@@ -4,43 +4,54 @@ pub mod transaction;
 pub mod statement;
 pub mod result;
 
+use crate::GraphError;
+use serde_json::json;
+
 pub use self::statement::Statement;
 pub use self::transaction::Transaction;
 pub use self::result::CypherResult;
 
-use std::collections::BTreeMap;
-
-use hyper::Url;
-use hyper::client::{Client, Response};
-use hyper::header::Headers;
+use hyper::{Request, Response, Uri, body::Bytes, client::HttpConnector};
+use hyper::body::Body;
+use hyper::client::{Client};
+use hyper::header::HeaderMap;
 use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
 use serde_json::de as json_de;
 use serde_json::ser as json_ser;
 use serde_json::value as json_value;
 
+
 use self::result::{QueryResult, ResultTrait};
-use ::error::GraphError;
 
-fn send_query(client: &Client, endpoint: &str, headers: &Headers, statements: Vec<Statement>)
-    -> Result<Response, GraphError> {
 
-    let mut json = BTreeMap::new();
-    json.insert("statements", statements);
+async fn send_query(client: &Client<HttpConnector, Body>, endpoint: &str, headers: &HeaderMap, statements: Vec<Statement>)
+    -> Result<Response<Body>, GraphError> {
 
-    let json = serde_json::to_string(&json)?;
+    
+    let data = json!({"statements": statements});
+    let json = serde_json::to_string(&data)?;
 
-    let req = client.post(endpoint)
-        .headers(headers.clone())
-        .body(&json);
 
-    debug!("Sending query:\n{}", json_ser::to_string_pretty(&json).unwrap_or(String::new()));
+    let mut builder = Request::builder()
+         .method("POST")
+         .uri(endpoint);
 
-    req.send().map_err(From::from)
+    for (key, value) in headers {
+        builder = builder.header(key.as_str(), value.to_str().unwrap());
+    }
+         
+    let req  = builder.body( Body::from(json)).unwrap();
+
+
+    debug!("Sending query:\n{}", json_ser::to_string_pretty(&data).unwrap_or(String::new()));
+    let req = client.request(req);
+    let result = req.await?;
+    Ok(result)
 }
 
-fn parse_response<T: DeserializeOwned + ResultTrait>(res: &mut Response) -> Result<T, GraphError> {
-    let result: Value = json_de::from_reader(res)?;
+fn parse_response<T: DeserializeOwned + ResultTrait>(bytes: &Bytes) -> Result<T, GraphError> {
+    let result: Value = json_de::from_slice(bytes)?;
 
     if let Some(errors) = result.get("errors") {
         if errors.as_array().map(|a| a.len()).unwrap_or(0) > 0 {
@@ -59,9 +70,9 @@ fn parse_response<T: DeserializeOwned + ResultTrait>(res: &mut Response) -> Resu
 /// The `Cypher` struct holds information about the cypher enpoint. It is used to create the queries
 /// that are sent to the server.
 pub struct Cypher {
-    endpoint: Url,
-    client: Client,
-    headers: Headers,
+    endpoint: Uri,
+    client: Client<HttpConnector, Body>,
+    headers: HeaderMap,
 }
 
 impl Cypher {
@@ -69,7 +80,7 @@ impl Cypher {
     ///
     /// Its arguments are the cypher transaction endpoint and the HTTP headers containing HTTP
     /// Basic Authentication, if needed.
-    pub fn new(endpoint: Url, client: Client, headers: Headers) -> Self {
+    pub fn new(endpoint: Uri, client: Client<HttpConnector, Body>, headers: HeaderMap) -> Self {
         Cypher {
             endpoint: endpoint,
             client: client,
@@ -81,11 +92,11 @@ impl Cypher {
         format!("{}/{}", &self.endpoint, "commit")
     }
 
-    fn client(&self) -> &Client {
+    fn client(&self) -> &Client<HttpConnector, Body> {
         &self.client
     }
 
-    fn headers(&self) -> &Headers {
+    fn headers(&self) -> &HeaderMap {
         &self.headers
     }
 
@@ -101,10 +112,10 @@ impl Cypher {
     ///
     /// Parameter can be anything that implements `Into<Statement>`, `Into<String>` or `Statement`
     /// itself
-    pub fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
+    pub async fn exec<S: Into<Statement>>(&self, statement: S) -> Result<CypherResult, GraphError> {
         self.query()
             .with_statement(statement)
-            .send()?
+            .send().await?
             .pop()
             .ok_or(GraphError::Other("No results returned from server".to_owned()))
     }
@@ -150,13 +161,17 @@ impl<'a> CypherQuery<'a> {
     ///
     /// The statements contained in the query are sent to the server and the results are parsed
     /// into a `Vec<CypherResult>` in order to match the response of the neo4j api.
-    pub fn send(self) -> Result<Vec<CypherResult>, GraphError> {
-        let mut res = send_query(self.cypher.client(),
+    pub async fn send(self) -> Result<Vec<CypherResult>, GraphError> {
+
+
+        let  res = send_query(self.cypher.client(),
                    &self.cypher.endpoint_commit(),
                    self.cypher.headers(),
-                   self.statements)?;
+                   self.statements).await?;
 
-        let result: QueryResult = parse_response(&mut res)?;
+        let bytes = hyper::body::to_bytes(res.into_body()).await?;
+
+        let result: QueryResult = parse_response(&bytes)?;
         if result.errors().len() > 0 {
             return Err(GraphError::Neo4j(result.errors().clone()))
         }
@@ -167,59 +182,60 @@ impl<'a> CypherQuery<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use ::cypher::result::Row;
+        use hyper::header::HeaderValue;
+        use base64::encode;
+        use hyper::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE};
 
-    fn get_cypher() -> Cypher {
-        use hyper::{Client, Url};
-        use hyper::header::{Authorization, Basic, ContentType, Headers};
+use super::*;
+    use crate::cypher::result::Row;
 
-        let cypher_endpoint = Url::parse("http://localhost:7474/db/data/transaction").unwrap();
+    fn get_cypher() -> Cypher  {
+        
+        let cypher_endpoint = "http://localhost:7474/db/data/transaction".parse::<Uri>().unwrap();
 
-        let mut headers = Headers::new();
-        headers.set(Authorization(
-            Basic {
-                username: "neo4j".to_owned(),
-                password: Some("neo4j".to_owned()),
-            }
-        ));
-        headers.set(ContentType::json());
+        let mut headers = HeaderMap::new();
+
+        let mut text = String::from("neo4j");
+        text.push(':');
+        text.push_str("neo4j");
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(&encode(text.as_bytes())).unwrap());
+        headers.insert( CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         Cypher::new(cypher_endpoint, Client::new(), headers)
     }
 
-    #[test]
-    fn query_without_params() {
-        let result = get_cypher().exec("MATCH (n:TEST_CYPHER) RETURN n").unwrap();
+    #[tokio::test]
+    async fn query_without_params() {
+        let result = get_cypher().exec("MATCH (n:TEST_CYPHER) RETURN n").await.unwrap();
 
         assert_eq!(result.columns.len(), 1);
         assert_eq!(result.columns[0], "n");
     }
 
-    #[test]
-    fn query_with_string_param() {
-        let statement = Statement::new("MATCH (n:TEST_CYPHER {name: {name}}) RETURN n")
+    #[tokio::test]
+    async fn query_with_string_param() {
+        let statement = Statement::new("MATCH (n:TEST_CYPHER {name: $name}) RETURN n")
             .with_param("name", "Neo").unwrap();
 
-        let result = get_cypher().exec(statement).unwrap();
+        let result = get_cypher().exec(statement).await.unwrap();
 
         assert_eq!(result.columns.len(), 1);
         assert_eq!(result.columns[0], "n");
     }
 
-    #[test]
-    fn query_with_int_param() {
-        let statement = Statement::new("MATCH (n:TEST_CYPHER {value: {value}}) RETURN n")
+    #[tokio::test]
+    async fn query_with_int_param() {
+        let statement = Statement::new("MATCH (n:TEST_CYPHER {value: $value}) RETURN n")
             .with_param("value", 42).unwrap();
 
-        let result = get_cypher().exec(statement).unwrap();
+        let result = get_cypher().exec(statement).await.unwrap();
 
         assert_eq!(result.columns.len(), 1);
         assert_eq!(result.columns[0], "n");
     }
 
-    #[test]
-    fn query_with_complex_param() {
+    #[tokio::test]
+    async fn query_with_complex_param() {
         #[derive(Serialize, Deserialize)]
         pub struct ComplexType {
             pub name: String,
@@ -233,13 +249,13 @@ mod tests {
             value: 42,
         };
 
-        let statement = Statement::new("CREATE (n:TEST_CYPHER_COMPLEX_PARAM {p})")
+        let statement = Statement::new("CREATE (n:TEST_CYPHER_COMPLEX_PARAM $p)")
             .with_param("p", &complex_param).unwrap();
 
-        let result = cypher.exec(statement);
+        let result = cypher.exec(statement).await;
         assert!(result.is_ok());
 
-        let results = cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) RETURN n").unwrap();
+        let results = cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) RETURN n").await.unwrap();
         let rows: Vec<Row> = results.rows().take(1).collect();
         let row = rows.first().unwrap();
 
@@ -247,23 +263,23 @@ mod tests {
         assert_eq!(complex_result.name, "Complex");
         assert_eq!(complex_result.value, 42);
 
-        cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) DELETE n").unwrap();
+        cypher.exec("MATCH (n:TEST_CYPHER_COMPLEX_PARAM) DELETE n").await.unwrap();
     }
 
-    #[test]
-    fn query_with_multiple_params() {
+    #[tokio::test]
+    async fn query_with_multiple_params() {
         let statement = Statement::new(
-            "MATCH (n:TEST_CYPHER {name: {name}}) WHERE n.value = {value} RETURN n")
+            "MATCH (n:TEST_CYPHER {name: $name}) WHERE n.value = $value RETURN n")
             .with_param("name", "Neo").unwrap()
             .with_param("value", 42).unwrap();
 
-        let result = get_cypher().exec(statement).unwrap();
+        let result = get_cypher().exec(statement).await.unwrap();
         assert_eq!(result.columns.len(), 1);
         assert_eq!(result.columns[0], "n");
     }
 
-    #[test]
-    fn multiple_queries() {
+    #[tokio::test]
+    async fn multiple_queries() {
         let cypher = get_cypher();
         let statement1 = Statement::new("MATCH (n:TEST_CYPHER) RETURN n");
         let statement2 = Statement::new("MATCH (n:TEST_CYPHER) RETURN n");
@@ -272,7 +288,7 @@ mod tests {
             .with_statement(statement1)
             .with_statement(statement2);
 
-        let results = query.send().unwrap();
+        let results = query.send().await.unwrap();
         assert_eq!(results.len(), 2);
     }
 }

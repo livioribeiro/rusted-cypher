@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_json::value::Value;
 
-use ::error::{GraphError, Neo4jError};
+use crate::error::{GraphError, Neo4jError};
 
 pub trait ResultTrait {
     fn results(&self) -> &Vec<CypherResult>;

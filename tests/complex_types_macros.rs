@@ -18,31 +18,31 @@ struct Language {
     safe: bool,
 }
 
-#[test]
-fn without_params() {
-    let graph = GraphClient::connect(URI).unwrap();
+#[tokio::test]
+async fn without_params() {
+    let graph = GraphClient::connect(URI, None).await.unwrap();
 
     let stmt = cypher_stmt!("MATCH (n:NTLY_INTG_TEST_MACROS_1) RETURN n").unwrap();
 
-    let result = graph.exec(stmt);
+    let result = graph.exec(stmt).await;
     assert!(result.is_ok());
 }
 
-#[test]
-fn save_retrive_struct() {
+#[tokio::test]
+async fn save_retrive_struct() {
     let rust = Language {
         name: "Rust".to_owned(),
         level: "low".to_owned(),
         safe: true,
     };
 
-    let graph = GraphClient::connect(URI).unwrap();
+    let graph = GraphClient::connect(URI, None).await.unwrap();
 
-    let stmt = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_MACROS_2 {lang}) RETURN n", {
+    let stmt = cypher_stmt!("CREATE (n:NTLY_INTG_TEST_MACROS_2 $lang) RETURN n", {
         "lang" => &rust
     }).unwrap();
 
-    let results = graph.exec(stmt).unwrap();
+    let results = graph.exec(stmt).await.unwrap();
     let rows: Vec<Row> = results.rows().take(1).collect();
     let row = rows.first().unwrap();
 
@@ -50,5 +50,5 @@ fn save_retrive_struct() {
 
     assert_eq!(rust, lang);
 
-    graph.exec("MATCH (n:NTLY_INTG_TEST_MACROS_2) DELETE n").unwrap();
+    graph.exec("MATCH (n:NTLY_INTG_TEST_MACROS_2) DELETE n").await.unwrap();
 }
